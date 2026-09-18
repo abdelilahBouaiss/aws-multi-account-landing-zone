@@ -36,6 +36,21 @@ locals {
       }
     }]
   }
+
+  protect_cloudtrail_policy = {
+    Version = "2012-10-17"
+    Statement = [{
+      Sid    = "DenyCloudTrailAuditWeakening"
+      Effect = "Deny"
+      Action = [
+        "cloudtrail:StopLogging",
+        "cloudtrail:DeleteTrail",
+        "cloudtrail:UpdateTrail",
+        "cloudtrail:PutEventSelectors",
+      ]
+      Resource = "*"
+    }]
+  }
 }
 
 resource "aws_organizations_policy" "protect_account_membership" {
@@ -52,6 +67,13 @@ resource "aws_organizations_policy" "restrict_regions" {
   type        = "SERVICE_CONTROL_POLICY"
 }
 
+resource "aws_organizations_policy" "protect_cloudtrail" {
+  name        = "protect-cloudtrail"
+  description = "Prevent governed accounts from weakening CloudTrail audit logging."
+  content     = jsonencode(local.protect_cloudtrail_policy)
+  type        = "SERVICE_CONTROL_POLICY"
+}
+
 resource "aws_organizations_policy_attachment" "protect_account_membership" {
   for_each = var.attachment_targets
 
@@ -63,5 +85,12 @@ resource "aws_organizations_policy_attachment" "restrict_regions" {
   for_each = var.restrict_regions_attachment_targets
 
   policy_id = aws_organizations_policy.restrict_regions.id
+  target_id = each.value
+}
+
+resource "aws_organizations_policy_attachment" "protect_cloudtrail" {
+  for_each = var.protect_cloudtrail_attachment_targets
+
+  policy_id = aws_organizations_policy.protect_cloudtrail.id
   target_id = each.value
 }

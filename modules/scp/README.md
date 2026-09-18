@@ -4,8 +4,8 @@
 
 This reusable Terraform module owns the repository's AWS Organizations service
 control policy definitions and their explicit caller-selected attachments. The
-current catalog contains two policies: `protect-account-membership` and
-`restrict-regions`.
+current catalog contains three policies: `protect-account-membership`,
+`restrict-regions`, and `protect-cloudtrail`.
 
 The module does not create the AWS Organization, organizational units, member
 accounts, IAM permissions, security services, workload resources, or any live
@@ -67,6 +67,47 @@ the management account are not automatically in scope.
 does not guarantee that an allowed API call has no cross-Region effect, so this
 policy is not a complete data-residency control.
 
+### `protect-cloudtrail`
+
+This deny-oriented SCP is a defense-in-depth control for governed member
+accounts. Organization trails already have service-level administration
+boundaries: ordinary member accounts cannot modify an organization trail, and
+management-account or CloudTrail delegated-administrator permissions are
+required for organization-trail management. SCPs also do not restrict
+management-account principals. This policy supplements those boundaries; it is
+not the primary mechanism that makes an organization trail immutable.
+
+It denies exactly these actions:
+
+- `cloudtrail:StopLogging` — directly suspends recording and log delivery.
+- `cloudtrail:DeleteTrail` — deletes the trail and stops future trail-based
+  logging.
+- `cloudtrail:UpdateTrail` — can materially change destinations and other
+  trail settings.
+- `cloudtrail:PutEventSelectors` — can reduce captured management, data, or
+  network activity events and therefore audit coverage.
+
+The policy does not deny `cloudtrail:CreateTrail`, `cloudtrail:StartLogging`,
+`cloudtrail:AddTags`, `cloudtrail:RemoveTags`, or
+`cloudtrail:PutInsightSelectors`. Creating an additional trail or starting
+logging does not weaken audit coverage; tag operations do not alter captured
+events; and CloudTrail Insights is outside the approved v1 audit-logging
+baseline.
+
+The statement uses `Resource = "*"`. At an attached governed account or OU, the
+four denied mutation actions apply broadly to applicable trails in that scope,
+not only to a named organization trail. This is an intentional centrally
+governed landing-zone tradeoff. Resource-level filtering is deferred until a
+centrally created trail ARN and validated requirement exist.
+
+The intended path is Policy-Staging, Sandbox where relevant, NonProduction,
+and Production. It is not automatically attached to Security Tooling, Log
+Archive, Shared Services, the organization root, or the management account.
+Attachment scope, rather than an IAM-role bypass, keeps a future central
+CloudTrail delegated-administration control plane able to manage organization
+trails. Any future automation required inside an attached scope needs explicit
+design and AWS validation before an exception is considered.
+
 ## Attachment targets
 
 The `attachment_targets` input is an optional `map(string)` from a stable
@@ -87,6 +128,11 @@ Policy-Staging, Sandbox where relevant, NonProduction, and Production during
 staged rollout. Keeping the maps separate prevents the two controls from
 sharing attachment scope accidentally.
 
+The separate `protect_cloudtrail_attachment_targets` input controls only
+`protect-cloudtrail` attachments. It also defaults to an empty map and follows
+the same staged workload and testing boundaries. It does not select a central
+logging or delegated-administration target automatically.
+
 Restrictive SCPs follow the approved sequence: static validation,
 Policy-Staging, Sandbox where relevant, NonProduction, and Production. This
 module provides the policy and explicit attachment mechanism; promotion and
@@ -98,6 +144,8 @@ rollback remain composition and governance responsibilities.
 - `protect_account_membership_policy_arn`: ARN of the created SCP.
 - `restrict_regions_policy_id`: ID of the created SCP.
 - `restrict_regions_policy_arn`: ARN of the created SCP.
+- `protect_cloudtrail_policy_id`: ID of the created SCP.
+- `protect_cloudtrail_policy_arn`: ARN of the created SCP.
 
 ## Testing and limitations
 
@@ -114,6 +162,6 @@ perform real AWS mutations or prove Organizations inheritance, management-
 account exclusions, service behavior, or real AWS enforcement. Real AWS
 validation remains necessary during staged rollout before broader attachment.
 
-Later SCP gates may add the separately approved controls for centralized
-CloudTrail protection, centrally governed security services, and member-account
-root-user restrictions. The latter three are not defined by this module yet.
+Later SCP gates may add the separately approved controls for centrally governed
+security services and member-account root-user restrictions. Those controls are
+not defined by this module yet.

@@ -27,6 +27,11 @@ run "policy_without_attachments" {
   }
 
   assert {
+    condition     = aws_organizations_policy.protect_cloudtrail.type == "SERVICE_CONTROL_POLICY"
+    error_message = "The protect-cloudtrail policy must be an AWS Organizations service control policy."
+  }
+
+  assert {
     condition     = length(aws_organizations_policy_attachment.protect_account_membership) == 0
     error_message = "An empty attachment target map must create no policy attachments."
   }
@@ -34,6 +39,11 @@ run "policy_without_attachments" {
   assert {
     condition     = length(aws_organizations_policy_attachment.restrict_regions) == 0
     error_message = "An empty restrict-regions attachment target map must create no policy attachments."
+  }
+
+  assert {
+    condition     = length(aws_organizations_policy_attachment.protect_cloudtrail) == 0
+    error_message = "An empty protect-cloudtrail attachment target map must create no policy attachments."
   }
 
   assert {
@@ -77,6 +87,11 @@ run "policy_without_attachments" {
   }
 
   assert {
+    condition     = output.protect_cloudtrail_policy_id == aws_organizations_policy.protect_cloudtrail.id && output.protect_cloudtrail_policy_arn == aws_organizations_policy.protect_cloudtrail.arn
+    error_message = "The protect-cloudtrail policy ID and ARN outputs must expose the correct policy identifiers."
+  }
+
+  assert {
     condition     = jsondecode(aws_organizations_policy.restrict_regions.content).Version == "2012-10-17"
     error_message = "The restrict-regions policy must use policy version 2012-10-17."
   }
@@ -115,6 +130,49 @@ run "policy_without_attachments" {
     )
     error_message = "The restrict-regions condition must deny requests outside exactly eu-west-1."
   }
+
+  assert {
+    condition     = jsondecode(aws_organizations_policy.protect_cloudtrail.content).Version == "2012-10-17"
+    error_message = "The protect-cloudtrail policy must use policy version 2012-10-17."
+  }
+
+  assert {
+    condition     = length(jsondecode(aws_organizations_policy.protect_cloudtrail.content).Statement) == 1
+    error_message = "The protect-cloudtrail policy must contain exactly one statement."
+  }
+
+  assert {
+    condition     = jsondecode(aws_organizations_policy.protect_cloudtrail.content).Statement[0].Sid == "DenyCloudTrailAuditWeakening"
+    error_message = "The protect-cloudtrail statement must use the approved stable SID."
+  }
+
+  assert {
+    condition     = jsondecode(aws_organizations_policy.protect_cloudtrail.content).Statement[0].Effect == "Deny" && jsondecode(aws_organizations_policy.protect_cloudtrail.content).Statement[0].Resource == "*"
+    error_message = "The protect-cloudtrail statement must deny all resources."
+  }
+
+  assert {
+    condition     = toset(jsondecode(aws_organizations_policy.protect_cloudtrail.content).Statement[0].Action) == toset(["cloudtrail:StopLogging", "cloudtrail:DeleteTrail", "cloudtrail:UpdateTrail", "cloudtrail:PutEventSelectors"])
+    error_message = "The protect-cloudtrail statement must deny exactly the approved audit-weakening actions."
+  }
+
+  assert {
+    condition = alltrue([
+      for action in ["cloudtrail:CreateTrail", "cloudtrail:StartLogging", "cloudtrail:AddTags", "cloudtrail:RemoveTags", "cloudtrail:PutInsightSelectors"] :
+      !contains(toset(jsondecode(aws_organizations_policy.protect_cloudtrail.content).Statement[0].Action), action)
+    ])
+    error_message = "The protect-cloudtrail policy must not deny the explicitly excluded CloudTrail actions."
+  }
+
+  assert {
+    condition     = !contains(keys(jsondecode(aws_organizations_policy.protect_cloudtrail.content).Statement[0]), "NotAction")
+    error_message = "The protect-cloudtrail statement must use Action and must not contain NotAction."
+  }
+
+  assert {
+    condition     = !contains(keys(jsondecode(aws_organizations_policy.protect_cloudtrail.content).Statement[0]), "Condition")
+    error_message = "The protect-cloudtrail statement must not contain a condition."
+  }
 }
 
 run "policy_with_attachment_targets" {
@@ -151,6 +209,11 @@ run "policy_with_attachment_targets" {
   assert {
     condition     = length(aws_organizations_policy_attachment.restrict_regions) == 0
     error_message = "Protect-account-membership attachments must not create restrict-regions attachments."
+  }
+
+  assert {
+    condition     = length(aws_organizations_policy_attachment.protect_cloudtrail) == 0
+    error_message = "Protect-account-membership attachments must not create protect-cloudtrail attachments."
   }
 }
 
@@ -189,6 +252,48 @@ run "restrict_regions_with_attachment_targets" {
     condition     = length(aws_organizations_policy_attachment.protect_account_membership) == 0
     error_message = "Restrict-regions attachments must not create protect-account-membership attachments."
   }
+
+  assert {
+    condition     = length(aws_organizations_policy_attachment.protect_cloudtrail) == 0
+    error_message = "Restrict-regions attachments must not create protect-cloudtrail attachments."
+  }
+}
+
+run "protect_cloudtrail_with_attachment_targets" {
+  command = apply
+
+  variables {
+    protect_cloudtrail_attachment_targets = {
+      policy_staging = "ou-policy1-12345678"
+      sandbox        = "ou-sandbox-12345678"
+      non_production = "ou-nonprod1-12345678"
+      production     = "ou-prod123-12345678"
+    }
+  }
+
+  assert {
+    condition     = length(aws_organizations_policy_attachment.protect_cloudtrail) == length(var.protect_cloudtrail_attachment_targets)
+    error_message = "Each protect-cloudtrail target must create one corresponding attachment resource."
+  }
+
+  assert {
+    condition = alltrue([
+      for label, attachment in aws_organizations_policy_attachment.protect_cloudtrail :
+      attachment.policy_id == aws_organizations_policy.protect_cloudtrail.id &&
+      attachment.target_id == var.protect_cloudtrail_attachment_targets[label]
+    ])
+    error_message = "Every protect-cloudtrail attachment must reference the protect-cloudtrail policy and its supplied target ID."
+  }
+
+  assert {
+    condition     = toset([for attachment in aws_organizations_policy_attachment.protect_cloudtrail : attachment.target_id]) == toset(values(var.protect_cloudtrail_attachment_targets))
+    error_message = "All supplied protect-cloudtrail target IDs must propagate to the expected attachments."
+  }
+
+  assert {
+    condition     = length(aws_organizations_policy_attachment.protect_account_membership) == 0 && length(aws_organizations_policy_attachment.restrict_regions) == 0
+    error_message = "Protect-cloudtrail attachments must not create attachments for the other policies."
+  }
 }
 
 run "invalid_attachment_target_fails" {
@@ -213,4 +318,16 @@ run "invalid_restrict_regions_attachment_target_fails" {
   }
 
   expect_failures = [var.restrict_regions_attachment_targets]
+}
+
+run "invalid_protect_cloudtrail_attachment_target_fails" {
+  command = plan
+
+  variables {
+    protect_cloudtrail_attachment_targets = {
+      invalid = "not-an-organizations-target"
+    }
+  }
+
+  expect_failures = [var.protect_cloudtrail_attachment_targets]
 }
