@@ -13,6 +13,29 @@ locals {
       Resource = "*"
     }]
   }
+
+  restrict_regions_policy = {
+    Version = "2012-10-17"
+    Statement = [{
+      Sid    = "DenyOutsideApprovedRegion"
+      Effect = "Deny"
+      NotAction = [
+        "cloudfront:*",
+        "iam:*",
+        "route53:*",
+        "support:*",
+        "organizations:*",
+        "budgets:*",
+        "sts:*",
+      ]
+      Resource = "*"
+      Condition = {
+        StringNotEquals = {
+          "aws:RequestedRegion" = ["eu-west-1"]
+        }
+      }
+    }]
+  }
 }
 
 resource "aws_organizations_policy" "protect_account_membership" {
@@ -22,9 +45,23 @@ resource "aws_organizations_policy" "protect_account_membership" {
   type        = "SERVICE_CONTROL_POLICY"
 }
 
+resource "aws_organizations_policy" "restrict_regions" {
+  name        = "restrict-regions"
+  description = "Restrict regional API activity to eu-west-1 while preserving approved global services."
+  content     = jsonencode(local.restrict_regions_policy)
+  type        = "SERVICE_CONTROL_POLICY"
+}
+
 resource "aws_organizations_policy_attachment" "protect_account_membership" {
   for_each = var.attachment_targets
 
   policy_id = aws_organizations_policy.protect_account_membership.id
+  target_id = each.value
+}
+
+resource "aws_organizations_policy_attachment" "restrict_regions" {
+  for_each = var.restrict_regions_attachment_targets
+
+  policy_id = aws_organizations_policy.restrict_regions.id
   target_id = each.value
 }
