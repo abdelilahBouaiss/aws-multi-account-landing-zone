@@ -1,0 +1,158 @@
+# SCP governance and rollout strategy
+
+## Purpose
+
+Service control policies (SCPs) provide organization-level preventive
+guardrails for governed member accounts. This document defines the approved
+rollout lifecycle and the initial catalog of controls before policy
+implementation begins.
+
+SCPs are deny-oriented guardrails. They establish the maximum permissions
+available to principals in affected member accounts; they do not grant IAM
+permissions. An explicit SCP `Deny` overrides permissions granted by IAM.
+
+The policy JSON is not yet implemented. The catalog records intended behavior,
+scope, risks, and validation requirements without inventing final statements,
+actions, conditions, `NotAction` lists, role names, or exceptions.
+
+## AWS policy semantics
+
+The following semantics govern design and review:
+
+- SCPs establish maximum available permissions; they do not grant permissions.
+- An explicit SCP `Deny` overrides permissions granted by IAM.
+- SCPs do not restrict principals in the AWS Organizations management account.
+- SCPs do not restrict service-linked roles.
+- Inherited SCPs and other inherited policies must be considered when reasoning
+  about effective permissions.
+- Restrictive policies require testing before broader attachment.
+
+The management account remains directly under the organization root and is not
+placed in a member-account OU. A policy intended for root attachment must
+therefore be reasoned about as applying to member accounts below the root, not
+as a control on management-account principals.
+
+## Rollout lifecycle
+
+Restrictive SCPs follow this sequence:
+
+1. **Static policy validation:** Review policy structure, intended scope,
+   documented behavior, known exceptions, and implementation assumptions. This
+   stage does not demonstrate AWS enforcement.
+2. **Policy-Staging OU:** Attach the candidate policy to the Policy-Test
+   account in the dedicated Policy-Staging OU. Evaluate intended denies,
+   permitted workflows, inheritance, and rollback behavior in a controlled
+   policy-test boundary.
+3. **Sandbox where relevant:** Test the candidate in the Sandbox account when
+   isolated experimentation or a broader set of representative workflows is
+   relevant to the control.
+4. **NonProduction:** Promote to the approved non-production workload scope,
+   covering Development and Staging accounts as applicable. Confirm that valid
+   pre-production operations and required security, logging, and automation
+   workflows remain usable.
+5. **Production:** Promote to the Production scope only after the promotion
+   criteria below are satisfied and the change has an explicit approval.
+
+Each stage must preserve the policy purpose, intended attachment scope,
+expected effect, known exceptions, validation evidence, and rollback guidance.
+The sequence is a control boundary, not an assertion that any stage has
+already been executed.
+
+## Policy-Staging and Sandbox
+
+Policy-Staging is a purpose-built policy-validation boundary. The Policy-Test
+account exists to evaluate candidate SCP behavior and attachment effects before
+the policy is exposed to broader workload scopes.
+
+Sandbox is an isolated experimentation boundary. It may be used when the
+control needs additional representative workflow or resource testing, but it
+is not a replacement for Policy-Staging and is not automatically required for
+every control. Sandbox testing also does not authorize promotion without the
+remaining validation and approval steps.
+
+## Promotion criteria
+
+A candidate may advance only when all applicable criteria are met:
+
+- static validation has completed without unresolved structural or scope
+  concerns;
+- expected denied actions and permitted workflows have been evaluated at the
+  current stage;
+- no unexplained impact to valid security, logging, account, or workload
+  automation remains;
+- known exceptions are explicitly documented, and any required exception
+  behavior has been validated;
+- inherited policies and the management-account and service-linked-role limits
+  have been considered;
+- rollback can be performed at the current attachment scope; and
+- an authorized review has approved promotion to the next stage.
+
+Promotion must stop when a control produces an unexplained deny, an action
+expected to be denied remains permitted, or an unvalidated automation impact.
+
+## Rollback process
+
+For a failed stage or unexpected impact:
+
+1. Stop further promotion.
+2. Remove or revert the candidate restrictive attachment from the affected
+   scope, preserving unrelated approved guardrails.
+3. Restore the previously approved policy state for that scope.
+4. Re-evaluate the affected workflow and confirm that the impact is understood
+   before retrying.
+5. Record the failure, required exception or policy change, validation gap, and
+   revised promotion conditions.
+
+Emergency rollback is expected to be reversible and limited to the affected
+restrictive control. An authorized operator may roll back a policy immediately
+when it causes material access or service impact; the policy must then return
+through validation before re-attachment. Emergency rollback does not authorize
+silently weakening unrelated controls or bypassing the staged model for the
+next attempt.
+
+## Initial preventive-control catalog
+
+| Policy name | Purpose | Target scope | Principal risk | Service/automation risk | Validation requirement |
+| --- | --- | --- | --- | --- | --- |
+| `protect-account-membership` | Prevent member accounts from leaving the organization or being closed without authorization. | Intended for attachment at the organization root so the guardrail applies to member accounts below it; SCP semantics do not restrict the management account. | A compromised member-account principal could attempt organization escape or unauthorized account closure. | Account-vending, account-governance, recovery, or other approved Organizations workflows could be denied. | Validate member-account behavior, management-account semantics, account lifecycle workflows, and the emergency rollback path before root attachment. |
+| `restrict-regions` | Limit workload placement to the primary allowed workload region, `eu-west-1`, while preserving required global-service behavior. | Workload, Sandbox, and Policy-Staging boundaries. | A member-account principal could create resources outside the approved workload region, increasing governance, data-residency, and cost risk. | Global or non-regional AWS services may require explicit exceptions; the final `NotAction` list is not defined yet. | Validate regional and global-service behavior in AWS. Final exceptions and the `NotAction` set require implementation-time validation. |
+| `protect-cloudtrail` | Prevent governed member accounts from stopping, deleting, or materially changing centrally managed organization audit logging. | Governed member accounts where centralized organization audit logging applies. | A compromised member-account principal could disable or alter evidence needed for audit and incident response. | Central logging automation and approved audit-management workflows could be denied. Exact API actions and automation-role exceptions are deferred. | Validate the required CloudTrail behavior, central logging workflow, exact API actions, and any automation-role exceptions before attachment. |
+| `protect-security-services` | Protect centrally governed GuardDuty and Security Hub configuration from unauthorized member-account changes. | Governed member accounts; delegated security administration remains in the Security Tooling account. | A member-account principal could weaken detection or central security configuration to hide activity. | Delegated administration, central configuration, and approved security automation could be denied. Exact API actions and exceptions are deferred. | Validate GuardDuty and Security Hub service behavior, delegated administration, exact API actions, and exceptions before attachment. |
+| `restrict-member-root-user` | Restrict routine AWS API use by root users in member accounts. | Member accounts; SCPs do not restrict management-account principals. | Use of member-account root credentials could bypass normal human-access controls and increase blast radius. | Some AWS operations may legitimately require root credentials; the exact exception set must be explicitly designed. | Identify legitimate root-required operations, validate the exception set, and test both denied routine use and permitted exceptional operations before attachment. |
+
+## Control-specific implementation constraints
+
+The catalog deliberately leaves implementation details open:
+
+- `protect-account-membership` must cover unauthorized member-account departure
+  and closure without assuming a final action list.
+- `restrict-regions` must account for global and non-regional AWS services. The
+  final `NotAction` list and exceptions require implementation-time validation.
+- `protect-cloudtrail` must be designed around validated API actions and
+  explicitly reviewed automation-role exceptions.
+- `protect-security-services` must be designed around validated GuardDuty and
+  Security Hub behavior, delegated administration, API actions, and exceptions.
+- `restrict-member-root-user` must have an explicitly designed and validated
+  exception set for legitimate root-only operations.
+
+No additional SCPs, declarative policies, or resource control policies are
+included in this initial catalog.
+
+## Local and emulated validation limits
+
+Static, local, or emulated validation can help assess policy structure,
+documentation, selected evaluation cases, and test-harness behavior. It cannot
+fully reproduce real AWS Organizations inheritance, the management-account
+exclusion, service-linked-role behavior, delegated administration, global versus
+regional service behavior, condition-key support, or service-specific API
+enforcement.
+
+A passing local or emulated check is therefore not evidence of validation
+against real AWS. Final policy behavior and exceptions require implementation-
+time validation in an appropriate AWS environment before broader attachment.
+
+## Status
+
+This document records approved governance intent for the reconstruction. It
+does not claim that any SCP has been implemented, attached, deployed, or
+validated in production.
