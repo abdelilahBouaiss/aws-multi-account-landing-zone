@@ -11,9 +11,12 @@ SCPs are deny-oriented guardrails. They establish the maximum permissions
 available to principals in affected member accounts; they do not grant IAM
 permissions. An explicit SCP `Deny` overrides permissions granted by IAM.
 
-The policy JSON is not yet implemented. The catalog records intended behavior,
+The `protect-account-membership` policy definition is implemented in the
+reusable `modules/scp` module, with caller-controlled attachments. The other
+catalog policies remain design-only. The catalog records intended behavior,
 scope, risks, and validation requirements without inventing final statements,
-actions, conditions, `NotAction` lists, role names, or exceptions.
+actions, conditions, `NotAction` lists, role names, or exceptions for those
+later controls.
 
 ## AWS policy semantics
 
@@ -153,6 +156,9 @@ time validation in an appropriate AWS environment before broader attachment.
 
 ## Status
 
-This document records approved governance intent for the reconstruction. It
-does not claim that any SCP has been implemented, attached, deployed, or
-validated in production.
+This document records approved governance intent for the reconstruction. The
+repository currently contains the `protect-account-membership` policy
+definition and mocked Terraform validation for its document and attachment
+model. This does not claim that the policy has been attached, deployed, or
+validated against real AWS or in production; broader rollout still requires the
+approved staged process and AWS validation.

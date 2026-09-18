@@ -1,0 +1,30 @@
+locals {
+  # Keep the policy as a structured object so mocked native tests inspect the
+  # actual document instead of a provider-mocked data-source placeholder.
+  protect_account_membership_policy = {
+    Version = "2012-10-17"
+    Statement = [{
+      Sid    = "DenyAccountDepartureAndClosure"
+      Effect = "Deny"
+      Action = [
+        "organizations:LeaveOrganization",
+        "account:CloseAccount",
+      ]
+      Resource = "*"
+    }]
+  }
+}
+
+resource "aws_organizations_policy" "protect_account_membership" {
+  name        = "protect-account-membership"
+  description = "Prevent member accounts from leaving the organization or closing themselves."
+  content     = jsonencode(local.protect_account_membership_policy)
+  type        = "SERVICE_CONTROL_POLICY"
+}
+
+resource "aws_organizations_policy_attachment" "protect_account_membership" {
+  for_each = var.attachment_targets
+
+  policy_id = aws_organizations_policy.protect_account_membership.id
+  target_id = each.value
+}
