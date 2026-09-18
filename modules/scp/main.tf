@@ -51,6 +51,23 @@ locals {
       Resource = "*"
     }]
   }
+
+  protect_security_services_policy = {
+    Version = "2012-10-17"
+    Statement = [{
+      Sid    = "DenySecurityServiceWeakening"
+      Effect = "Deny"
+      Action = [
+        "guardduty:DeleteDetector",
+        "guardduty:UpdateDetector",
+        "securityhub:DisableSecurityHub",
+        "securityhub:BatchDisableStandards",
+        "securityhub:BatchUpdateStandardsControlAssociations",
+        "securityhub:UpdateStandardsControl",
+      ]
+      Resource = "*"
+    }]
+  }
 }
 
 resource "aws_organizations_policy" "protect_account_membership" {
@@ -74,6 +91,13 @@ resource "aws_organizations_policy" "protect_cloudtrail" {
   type        = "SERVICE_CONTROL_POLICY"
 }
 
+resource "aws_organizations_policy" "protect_security_services" {
+  name        = "protect-security-services"
+  description = "Prevent governed accounts from weakening GuardDuty and Security Hub controls."
+  content     = jsonencode(local.protect_security_services_policy)
+  type        = "SERVICE_CONTROL_POLICY"
+}
+
 resource "aws_organizations_policy_attachment" "protect_account_membership" {
   for_each = var.attachment_targets
 
@@ -92,5 +116,12 @@ resource "aws_organizations_policy_attachment" "protect_cloudtrail" {
   for_each = var.protect_cloudtrail_attachment_targets
 
   policy_id = aws_organizations_policy.protect_cloudtrail.id
+  target_id = each.value
+}
+
+resource "aws_organizations_policy_attachment" "protect_security_services" {
+  for_each = var.protect_security_services_attachment_targets
+
+  policy_id = aws_organizations_policy.protect_security_services.id
   target_id = each.value
 }

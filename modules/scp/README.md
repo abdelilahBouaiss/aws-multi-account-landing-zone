@@ -4,8 +4,8 @@
 
 This reusable Terraform module owns the repository's AWS Organizations service
 control policy definitions and their explicit caller-selected attachments. The
-current catalog contains three policies: `protect-account-membership`,
-`restrict-regions`, and `protect-cloudtrail`.
+current catalog contains four policies: `protect-account-membership`,
+`restrict-regions`, `protect-cloudtrail`, and `protect-security-services`.
 
 The module does not create the AWS Organization, organizational units, member
 accounts, IAM permissions, security services, workload resources, or any live
@@ -108,6 +108,57 @@ CloudTrail delegated-administration control plane able to manage organization
 trails. Any future automation required inside an attached scope needs explicit
 design and AWS validation before an exception is considered.
 
+### `protect-security-services`
+
+This deny-oriented SCP is a defense-in-depth control for governed member
+accounts. It does not replace GuardDuty delegated administration or
+organization configuration, Security Hub delegated administration or central
+configuration, or the service-level boundaries provided by those integrations.
+Those security-service capabilities are later implementation concerns.
+
+It denies exactly these actions:
+
+- `guardduty:DeleteDetector` — deletes the regional detector and disables
+  GuardDuty in that Region.
+- `guardduty:UpdateDetector` — can change detector or protection-plan
+  configuration and disable configured detection features.
+- `securityhub:DisableSecurityHub` — disables Security Hub CSPM for an
+  account/Region and its associated standards and controls.
+- `securityhub:BatchDisableStandards` — can disable enabled Security Hub CSPM
+  standards.
+- `securityhub:BatchUpdateStandardsControlAssociations` — can disable
+  security controls across standards.
+- `securityhub:UpdateStandardsControl` — can enable or disable an individual
+  control in a standard.
+
+The policy intentionally does not deny GuardDuty delegated-administrator or
+member-management APIs such as `guardduty:StopMonitoringMembers`,
+`guardduty:DisassociateMembers`, `guardduty:DeleteMembers`,
+`guardduty:UpdateMemberDetectors`,
+`guardduty:UpdateOrganizationConfiguration`,
+`guardduty:EnableOrganizationAdminAccount`, or
+`guardduty:DisableOrganizationAdminAccount`. It also does not deny Security
+Hub central-administration or configuration-policy APIs such as
+`securityhub:UpdateOrganizationConfiguration`,
+`securityhub:CreateConfigurationPolicy`,
+`securityhub:UpdateConfigurationPolicy`,
+`securityhub:DeleteConfigurationPolicy`,
+`securityhub:StartConfigurationPolicyAssociation`,
+`securityhub:StartConfigurationPolicyDisassociation`, or
+`securityhub:DisassociateMembers`. The v1 policy also leaves
+`guardduty:DisassociateFromAdministratorAccount` and
+`securityhub:DisassociateFromAdministratorAccount` outside the deny set.
+These exclusions preserve the central security control plane and the
+Organizations-managed member model; no wildcard service deny is used.
+
+The statement uses `Resource = "*"`, so the six denied capability-weakening
+operations apply broadly to applicable GuardDuty and Security Hub resources in
+an attached scope. The intended staged scope is Policy-Staging, Sandbox where
+relevant, NonProduction, and Production. Security Tooling, Log Archive, Shared
+Services, the organization root, and the management account are not
+automatically in scope; Security Tooling must retain its future delegated
+administrator role.
+
 ## Attachment targets
 
 The `attachment_targets` input is an optional `map(string)` from a stable
@@ -133,6 +184,12 @@ The separate `protect_cloudtrail_attachment_targets` input controls only
 the same staged workload and testing boundaries. It does not select a central
 logging or delegated-administration target automatically.
 
+The separate `protect_security_services_attachment_targets` input controls
+only `protect-security-services` attachments. It defaults to an empty map and
+accepts the same root, OU, and 12-digit account target IDs. The caller chooses
+the staged workload and testing boundaries explicitly; Security Tooling is not
+selected automatically.
+
 Restrictive SCPs follow the approved sequence: static validation,
 Policy-Staging, Sandbox where relevant, NonProduction, and Production. This
 module provides the policy and explicit attachment mechanism; promotion and
@@ -146,6 +203,8 @@ rollback remain composition and governance responsibilities.
 - `restrict_regions_policy_arn`: ARN of the created SCP.
 - `protect_cloudtrail_policy_id`: ID of the created SCP.
 - `protect_cloudtrail_policy_arn`: ARN of the created SCP.
+- `protect_security_services_policy_id`: ID of the created SCP.
+- `protect_security_services_policy_arn`: ARN of the created SCP.
 
 ## Testing and limitations
 
@@ -160,8 +219,9 @@ Tests use Terraform provider mocking to inspect the generated policy document,
 attachment behavior, target propagation, and input validation. They do not
 perform real AWS mutations or prove Organizations inheritance, management-
 account exclusions, service behavior, or real AWS enforcement. Real AWS
-validation remains necessary during staged rollout before broader attachment.
+validation remains necessary during staged rollout before broader attachment,
+including validation of GuardDuty/Security Hub behavior and delegated-admin
+workflows.
 
-Later SCP gates may add the separately approved controls for centrally governed
-security services and member-account root-user restrictions. Those controls are
-not defined by this module yet.
+The remaining approved SCP gate is the member-account root-user restriction.
+It is not defined by this module yet.

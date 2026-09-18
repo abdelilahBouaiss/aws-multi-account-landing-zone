@@ -10,13 +10,13 @@ SCPs are deny-oriented guardrails. They establish the maximum permissions
 available to principals in affected member accounts; they do not grant IAM
 permissions. An explicit SCP `Deny` overrides permissions granted by IAM.
 
-The `protect-account-membership`, `restrict-regions`, and `protect-cloudtrail`
-policy definitions are implemented in the reusable `modules/scp` module, with
-separate caller-controlled attachments. The other catalog policies remain
-design-only. The catalog records intended behavior, scope, risks, and
-validation requirements without inventing final statements, actions,
-conditions, `NotAction` lists, role names, or exceptions for those later
-controls.
+The `protect-account-membership`, `restrict-regions`, `protect-cloudtrail`,
+and `protect-security-services` policy definitions are implemented in the
+reusable `modules/scp` module, with separate caller-controlled attachments.
+The remaining catalog policy is design-only. The catalog records intended
+behavior, scope, risks, and validation requirements without inventing final
+statements, actions, conditions, `NotAction` lists, role names, or exceptions
+for that later control.
 
 ## AWS policy semantics
 
@@ -120,7 +120,7 @@ next attempt.
 | `protect-account-membership` | Prevent member accounts from leaving the organization or being closed without authorization. | Intended for attachment at the organization root so the guardrail applies to member accounts below it; SCP semantics do not restrict the management account. | A compromised member-account principal could attempt organization escape or unauthorized account closure. | Account-vending, account-governance, recovery, or other approved Organizations workflows could be denied. | Validate member-account behavior, management-account semantics, account lifecycle workflows, and the emergency rollback path before root attachment. |
 | `restrict-regions` | Limit regional API activity to `eu-west-1` while preserving the architecture's approved global/control-plane services. | Policy-Staging, Sandbox where relevant, NonProduction, and Production; the management account and dedicated platform accounts are not automatically in scope. | A member-account principal could create resources outside the approved workload region, increasing governance, data-residency, and cost risk. | The fixed v1 `NotAction` exceptions are `cloudfront:*`, `iam:*`, `route53:*`, `support:*`, `organizations:*`, `budgets:*`, and `sts:*`. Future services require deliberate review. | Validate regional and global-service behavior in AWS. `aws:RequestedRegion` does not guarantee that an allowed API has no cross-Region effect and is not a complete data-residency control. |
 | `protect-cloudtrail` | Defense in depth against governed member-account weakening of trail-based audit logging. Organization trails already require management-account or delegated-administrator permissions to manage. | Policy-Staging, Sandbox where relevant, NonProduction, and Production. It is not automatically attached to central logging, delegated-administration, root, or management boundaries. | A compromised member-account principal could attempt to reduce audit evidence. | The policy broadly denies four mutation actions for applicable trails in an attached scope. Future automation inside that scope requires explicit design and validation. | Validate real AWS enforcement, organization-trail administration boundaries, central logging workflows, and rollback before broader attachment. |
-| `protect-security-services` | Protect centrally governed GuardDuty and Security Hub configuration from unauthorized member-account changes. | Governed member accounts; delegated security administration remains in the Security Tooling account. | A member-account principal could weaken detection or central security configuration to hide activity. | Delegated administration, central configuration, and approved security automation could be denied. Exact API actions and exceptions are deferred. | Validate GuardDuty and Security Hub service behavior, delegated administration, exact API actions, and exceptions before attachment. |
+| `protect-security-services` | Defense in depth against governed member-account weakening of GuardDuty and Security Hub CSPM capabilities. | Policy-Staging, Sandbox where relevant, NonProduction, and Production; Security Tooling, Log Archive, Shared Services, the organization root, and the management account are not automatically in scope. | A member-account principal could weaken detection or centrally established Security Hub standards and controls. | The policy denies six local capability-weakening actions while leaving delegated-administration and central-configuration APIs available. | Validate real AWS service behavior, delegated administration, central configuration, workflow impact, and rollback before broader attachment. |
 | `restrict-member-root-user` | Restrict routine AWS API use by root users in member accounts. | Member accounts; SCPs do not restrict management-account principals. | Use of member-account root credentials could bypass normal human-access controls and increase blast radius. | Some AWS operations may legitimately require root credentials; the exact exception set must be explicitly designed. | Identify legitimate root-required operations, validate the exception set, and test both denied routine use and permitted exceptional operations before attachment. |
 
 ## Control-specific implementation constraints
@@ -149,8 +149,21 @@ The catalog deliberately leaves implementation details open:
   `cloudtrail:PutInsightSelectors`. The central organization-trail
   infrastructure and delegated administration are not implemented here; real
   AWS enforcement and central logging workflow validation remain required.
-- `protect-security-services` must be designed around validated GuardDuty and
-  Security Hub behavior, delegated administration, API actions, and exceptions.
+- `protect-security-services` is implemented as defense in depth, not as a
+  replacement for GuardDuty delegated administration or organization
+  configuration, or Security Hub delegated administration or central
+  configuration. It denies exactly `guardduty:DeleteDetector`,
+  `guardduty:UpdateDetector`, `securityhub:DisableSecurityHub`,
+  `securityhub:BatchDisableStandards`,
+  `securityhub:BatchUpdateStandardsControlAssociations`, and
+  `securityhub:UpdateStandardsControl`. Security Tooling remains outside the
+  automatic attachment scope. The policy deliberately does not deny GuardDuty
+  member-management or organization-configuration APIs, Security Hub
+  central-administration or configuration-policy APIs, or
+  `guardduty:DisassociateFromAdministratorAccount` and
+  `securityhub:DisassociateFromAdministratorAccount`. Delegated
+  administration and central configuration remain later gates; real AWS
+  service and workflow validation is required before broader attachment.
 - `restrict-member-root-user` must have an explicitly designed and validated
   exception set for legitimate root-only operations.
 
@@ -174,8 +187,8 @@ time validation in an appropriate AWS environment before broader attachment.
 
 This document records approved governance intent for the reconstruction. The
 repository currently contains the `protect-account-membership`,
-`restrict-regions`, and `protect-cloudtrail` policy definitions and mocked
-Terraform validation for their documents and attachment models. This does not
-claim that any policy has been attached, deployed, or validated against real
-AWS or in production; broader rollout still requires the approved staged
-process and AWS validation.
+`restrict-regions`, `protect-cloudtrail`, and `protect-security-services`
+policy definitions and mocked Terraform validation for their documents and
+attachment models. This does not claim that any policy has been attached,
+deployed, or validated against real AWS or in production; broader rollout still
+requires the approved staged process and AWS validation.

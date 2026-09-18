@@ -27,3 +27,13 @@ output "protect_cloudtrail_policy_arn" {
   description = "The ARN of the protect-cloudtrail service control policy."
   value       = aws_organizations_policy.protect_cloudtrail.arn
 }
+
+output "protect_security_services_policy_id" {
+  description = "The ID of the protect-security-services service control policy."
+  value       = aws_organizations_policy.protect_security_services.id
+}
+
+output "protect_security_services_policy_arn" {
+  description = "The ARN of the protect-security-services service control policy."
+  value       = aws_organizations_policy.protect_security_services.arn
+}
