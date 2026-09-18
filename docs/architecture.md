@@ -68,7 +68,10 @@ that the architecture has been deployed or validated against AWS.
 Security Hub uses delegated administration with central configuration, with
 AWS Foundational Security Best Practices as the initial standard. GuardDuty
 also uses delegated administration. Audit logging is centralized in the Log
-Archive account. IAM Identity Center is the normal human-access model.
+Archive account through the approved v1 design of one multi-Region
+organization trail with `eu-west-1` as its home Region; the detailed
+CloudTrail and storage design is documented in `docs/cloudtrail-logging.md`.
+IAM Identity Center is the normal human-access model.
 
 Transit Gateway provides the hub-and-spoke network pattern. Workload VPCs use
 production-style public/private subnet topology. Connectivity between
