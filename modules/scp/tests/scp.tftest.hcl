@@ -37,6 +37,11 @@ run "policy_without_attachments" {
   }
 
   assert {
+    condition     = aws_organizations_policy.restrict_member_root_user.type == "SERVICE_CONTROL_POLICY"
+    error_message = "The restrict-member-root-user policy must be an AWS Organizations service control policy."
+  }
+
+  assert {
     condition     = length(aws_organizations_policy_attachment.protect_account_membership) == 0
     error_message = "An empty attachment target map must create no policy attachments."
   }
@@ -54,6 +59,11 @@ run "policy_without_attachments" {
   assert {
     condition     = length(aws_organizations_policy_attachment.protect_security_services) == 0
     error_message = "An empty protect-security-services attachment target map must create no policy attachments."
+  }
+
+  assert {
+    condition     = length(aws_organizations_policy_attachment.restrict_member_root_user) == 0
+    error_message = "An empty restrict-member-root-user attachment target map must create no policy attachments."
   }
 
   assert {
@@ -104,6 +114,11 @@ run "policy_without_attachments" {
   assert {
     condition     = output.protect_security_services_policy_id == aws_organizations_policy.protect_security_services.id && output.protect_security_services_policy_arn == aws_organizations_policy.protect_security_services.arn
     error_message = "The protect-security-services policy ID and ARN outputs must expose the correct policy identifiers."
+  }
+
+  assert {
+    condition     = output.restrict_member_root_user_policy_id == aws_organizations_policy.restrict_member_root_user.id && output.restrict_member_root_user_policy_arn == aws_organizations_policy.restrict_member_root_user.arn
+    error_message = "The restrict-member-root-user policy ID and ARN outputs must expose the correct policy identifiers."
   }
 
   assert {
@@ -255,6 +270,58 @@ run "policy_without_attachments" {
     condition     = !contains(keys(jsondecode(aws_organizations_policy.protect_security_services.content).Statement[0]), "Condition")
     error_message = "The protect-security-services statement must not contain a condition."
   }
+
+  assert {
+    condition     = jsondecode(aws_organizations_policy.restrict_member_root_user.content).Version == "2012-10-17"
+    error_message = "The restrict-member-root-user policy must use policy version 2012-10-17."
+  }
+
+  assert {
+    condition     = length(jsondecode(aws_organizations_policy.restrict_member_root_user.content).Statement) == 1
+    error_message = "The restrict-member-root-user policy must contain exactly one statement."
+  }
+
+  assert {
+    condition     = jsondecode(aws_organizations_policy.restrict_member_root_user.content).Statement[0].Sid == "DenyRoutineMemberRootUse"
+    error_message = "The restrict-member-root-user statement must use the approved stable SID."
+  }
+
+  assert {
+    condition     = jsondecode(aws_organizations_policy.restrict_member_root_user.content).Statement[0].Effect == "Deny" && jsondecode(aws_organizations_policy.restrict_member_root_user.content).Statement[0].Resource == "*"
+    error_message = "The restrict-member-root-user statement must deny all resources."
+  }
+
+  assert {
+    condition     = toset(jsondecode(aws_organizations_policy.restrict_member_root_user.content).Statement[0].NotAction) == toset(["s3:GetBucketPolicy", "s3:PutBucketPolicy", "s3:DeleteBucketPolicy"])
+    error_message = "The restrict-member-root-user statement must use exactly the approved S3 bucket-policy recovery exceptions."
+  }
+
+  assert {
+    condition     = !contains(keys(jsondecode(aws_organizations_policy.restrict_member_root_user.content).Statement[0]), "Action")
+    error_message = "The restrict-member-root-user statement must use NotAction and must not contain Action."
+  }
+
+  assert {
+    condition = (
+      toset(keys(jsondecode(aws_organizations_policy.restrict_member_root_user.content).Statement[0].Condition)) == toset(["ArnLike"]) &&
+      toset(keys(jsondecode(aws_organizations_policy.restrict_member_root_user.content).Statement[0].Condition.ArnLike)) == toset(["aws:PrincipalArn"]) &&
+      toset(jsondecode(aws_organizations_policy.restrict_member_root_user.content).Statement[0].Condition.ArnLike["aws:PrincipalArn"]) == toset(["arn:aws:iam::*:root"])
+    )
+    error_message = "The restrict-member-root-user condition must match exactly the AWS account root principal ARN."
+  }
+
+  assert {
+    condition     = !contains(keys(jsondecode(aws_organizations_policy.restrict_member_root_user.content).Statement[0]), "Principal")
+    error_message = "The restrict-member-root-user statement must not contain a Principal element."
+  }
+
+  assert {
+    condition = alltrue([
+      for action in ["s3:*", "iam:*", "organizations:*", "account:*", "billing:*"] :
+      !contains(toset(jsondecode(aws_organizations_policy.restrict_member_root_user.content).Statement[0].NotAction), action)
+    ])
+    error_message = "The restrict-member-root-user policy must not add broad service exceptions."
+  }
 }
 
 run "policy_with_attachment_targets" {
@@ -301,6 +368,11 @@ run "policy_with_attachment_targets" {
   assert {
     condition     = length(aws_organizations_policy_attachment.protect_security_services) == 0
     error_message = "Protect-account-membership attachments must not create protect-security-services attachments."
+  }
+
+  assert {
+    condition     = length(aws_organizations_policy_attachment.restrict_member_root_user) == 0
+    error_message = "Protect-account-membership attachments must not create restrict-member-root-user attachments."
   }
 }
 
@@ -349,6 +421,11 @@ run "restrict_regions_with_attachment_targets" {
     condition     = length(aws_organizations_policy_attachment.protect_security_services) == 0
     error_message = "Restrict-regions attachments must not create protect-security-services attachments."
   }
+
+  assert {
+    condition     = length(aws_organizations_policy_attachment.restrict_member_root_user) == 0
+    error_message = "Restrict-regions attachments must not create restrict-member-root-user attachments."
+  }
 }
 
 run "protect_cloudtrail_with_attachment_targets" {
@@ -391,6 +468,11 @@ run "protect_cloudtrail_with_attachment_targets" {
     condition     = length(aws_organizations_policy_attachment.protect_security_services) == 0
     error_message = "Protect-cloudtrail attachments must not create protect-security-services attachments."
   }
+
+  assert {
+    condition     = length(aws_organizations_policy_attachment.restrict_member_root_user) == 0
+    error_message = "Protect-cloudtrail attachments must not create restrict-member-root-user attachments."
+  }
 }
 
 run "protect_security_services_with_attachment_targets" {
@@ -427,6 +509,47 @@ run "protect_security_services_with_attachment_targets" {
   assert {
     condition     = length(aws_organizations_policy_attachment.protect_account_membership) == 0 && length(aws_organizations_policy_attachment.restrict_regions) == 0 && length(aws_organizations_policy_attachment.protect_cloudtrail) == 0
     error_message = "Protect-security-services attachments must not create attachments for the other policies."
+  }
+
+  assert {
+    condition     = length(aws_organizations_policy_attachment.restrict_member_root_user) == 0
+    error_message = "Protect-security-services attachments must not create restrict-member-root-user attachments."
+  }
+}
+
+run "restrict_member_root_user_with_attachment_targets" {
+  command = apply
+
+  variables {
+    restrict_member_root_user_attachment_targets = {
+      organization_root = "r-example1234"
+      policy_staging    = "ou-policy1-12345678"
+      account           = "123456789012"
+    }
+  }
+
+  assert {
+    condition     = length(aws_organizations_policy_attachment.restrict_member_root_user) == length(var.restrict_member_root_user_attachment_targets)
+    error_message = "Each restrict-member-root-user target must create one corresponding attachment resource."
+  }
+
+  assert {
+    condition = alltrue([
+      for label, attachment in aws_organizations_policy_attachment.restrict_member_root_user :
+      attachment.policy_id == aws_organizations_policy.restrict_member_root_user.id &&
+      attachment.target_id == var.restrict_member_root_user_attachment_targets[label]
+    ])
+    error_message = "Every restrict-member-root-user attachment must reference the restrict-member-root-user policy and its supplied target ID."
+  }
+
+  assert {
+    condition     = toset([for attachment in aws_organizations_policy_attachment.restrict_member_root_user : attachment.target_id]) == toset(values(var.restrict_member_root_user_attachment_targets))
+    error_message = "All supplied restrict-member-root-user target IDs must propagate to the expected attachments."
+  }
+
+  assert {
+    condition     = length(aws_organizations_policy_attachment.protect_account_membership) == 0 && length(aws_organizations_policy_attachment.restrict_regions) == 0 && length(aws_organizations_policy_attachment.protect_cloudtrail) == 0 && length(aws_organizations_policy_attachment.protect_security_services) == 0
+    error_message = "Restrict-member-root-user attachments must not create attachments for the other policies."
   }
 }
 
@@ -476,4 +599,16 @@ run "invalid_protect_security_services_attachment_target_fails" {
   }
 
   expect_failures = [var.protect_security_services_attachment_targets]
+}
+
+run "invalid_restrict_member_root_user_attachment_target_fails" {
+  command = plan
+
+  variables {
+    restrict_member_root_user_attachment_targets = {
+      invalid = "not-an-organizations-target"
+    }
+  }
+
+  expect_failures = [var.restrict_member_root_user_attachment_targets]
 }

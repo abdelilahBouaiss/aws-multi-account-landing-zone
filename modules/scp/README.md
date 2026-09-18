@@ -4,8 +4,9 @@
 
 This reusable Terraform module owns the repository's AWS Organizations service
 control policy definitions and their explicit caller-selected attachments. The
-current catalog contains four policies: `protect-account-membership`,
-`restrict-regions`, `protect-cloudtrail`, and `protect-security-services`.
+current catalog contains five policies: `protect-account-membership`,
+`restrict-regions`, `protect-cloudtrail`, `protect-security-services`, and
+`restrict-member-root-user`.
 
 The module does not create the AWS Organization, organizational units, member
 accounts, IAM permissions, security services, workload resources, or any live
@@ -159,6 +160,42 @@ Services, the organization root, and the management account are not
 automatically in scope; Security Tooling must retain its future delegated
 administrator role.
 
+### `restrict-member-root-user`
+
+This deny-oriented SCP restricts routine AWS API activity performed directly by
+root users of governed member accounts. Its condition matches the direct root
+principal ARN form `arn:aws:iam::*:root` through `ArnLike` on
+`aws:PrincipalArn`. It does not contain a `Principal` element and does not
+attempt to infer console sign-in or use `aws:username`.
+
+The statement uses `NotAction` with exactly these narrow S3 bucket-policy
+exceptions:
+
+- `s3:GetBucketPolicy`
+- `s3:PutBucketPolicy`
+- `s3:DeleteBucketPolicy`
+
+These preserve the AWS-documented root-only recovery case for an S3 bucket
+policy that denies access to all principals. `NotAction` does not grant these
+S3 actions; it only excludes them from this explicit deny. Other permissions
+and AWS authorization semantics still apply. The policy deliberately does not
+add billing, account-management, IAM, KMS, Organizations, Support,
+Marketplace, or wildcard service exceptions. Any future root-only requirement
+requires explicit policy review.
+
+SCPs do not restrict principals in the Organizations management account. The
+eventual intended attachment scope is the organization root so the guardrail
+can apply broadly to member accounts, but the caller controls attachments and
+the module does not select a root ID. The approved staged path remains static
+or mocked validation, Policy-Staging, Sandbox where appropriate,
+NonProduction, Production validation, and only then possible root attachment.
+
+AWS also supports centralized root access for Organizations member accounts,
+including removal of member-account root credentials. That is a complementary
+future identity/security capability, not functionality implemented by this
+module. This module does not create centralized root access, grant
+`sts:AssumeRoot`, remove credentials, or implement root recovery workflows.
+
 ## Attachment targets
 
 The `attachment_targets` input is an optional `map(string)` from a stable
@@ -190,6 +227,12 @@ accepts the same root, OU, and 12-digit account target IDs. The caller chooses
 the staged workload and testing boundaries explicitly; Security Tooling is not
 selected automatically.
 
+The separate `restrict_member_root_user_attachment_targets` input controls
+only `restrict-member-root-user` attachments. It defaults to an empty map and
+accepts the same root, OU, and 12-digit account target IDs. It is intended to
+allow staged targets before the eventual organization-root scope is reviewed;
+the module never hardcodes or automatically attaches the policy.
+
 Restrictive SCPs follow the approved sequence: static validation,
 Policy-Staging, Sandbox where relevant, NonProduction, and Production. This
 module provides the policy and explicit attachment mechanism; promotion and
@@ -205,6 +248,8 @@ rollback remain composition and governance responsibilities.
 - `protect_cloudtrail_policy_arn`: ARN of the created SCP.
 - `protect_security_services_policy_id`: ID of the created SCP.
 - `protect_security_services_policy_arn`: ARN of the created SCP.
+- `restrict_member_root_user_policy_id`: ID of the created SCP.
+- `restrict_member_root_user_policy_arn`: ARN of the created SCP.
 
 ## Testing and limitations
 
@@ -221,7 +266,8 @@ perform real AWS mutations or prove Organizations inheritance, management-
 account exclusions, service behavior, or real AWS enforcement. Real AWS
 validation remains necessary during staged rollout before broader attachment,
 including validation of GuardDuty/Security Hub behavior and delegated-admin
-workflows.
+workflows, root-principal condition behavior, and the S3 recovery path.
 
-The remaining approved SCP gate is the member-account root-user restriction.
-It is not defined by this module yet.
+All five approved SCP policy definitions are now explicit in this module.
+Centralized root access and related root-credential management remain future
+identity/security capabilities rather than module responsibilities.

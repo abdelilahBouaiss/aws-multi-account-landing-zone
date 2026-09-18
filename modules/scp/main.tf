@@ -68,6 +68,25 @@ locals {
       Resource = "*"
     }]
   }
+
+  restrict_member_root_user_policy = {
+    Version = "2012-10-17"
+    Statement = [{
+      Sid    = "DenyRoutineMemberRootUse"
+      Effect = "Deny"
+      NotAction = [
+        "s3:GetBucketPolicy",
+        "s3:PutBucketPolicy",
+        "s3:DeleteBucketPolicy",
+      ]
+      Resource = "*"
+      Condition = {
+        ArnLike = {
+          "aws:PrincipalArn" = ["arn:aws:iam::*:root"]
+        }
+      }
+    }]
+  }
 }
 
 resource "aws_organizations_policy" "protect_account_membership" {
@@ -98,6 +117,13 @@ resource "aws_organizations_policy" "protect_security_services" {
   type        = "SERVICE_CONTROL_POLICY"
 }
 
+resource "aws_organizations_policy" "restrict_member_root_user" {
+  name        = "restrict-member-root-user"
+  description = "Restrict routine API use by member-account root users."
+  content     = jsonencode(local.restrict_member_root_user_policy)
+  type        = "SERVICE_CONTROL_POLICY"
+}
+
 resource "aws_organizations_policy_attachment" "protect_account_membership" {
   for_each = var.attachment_targets
 
@@ -123,5 +149,12 @@ resource "aws_organizations_policy_attachment" "protect_security_services" {
   for_each = var.protect_security_services_attachment_targets
 
   policy_id = aws_organizations_policy.protect_security_services.id
+  target_id = each.value
+}
+
+resource "aws_organizations_policy_attachment" "restrict_member_root_user" {
+  for_each = var.restrict_member_root_user_attachment_targets
+
+  policy_id = aws_organizations_policy.restrict_member_root_user.id
   target_id = each.value
 }
