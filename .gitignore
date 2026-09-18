@@ -1,0 +1,60 @@
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+*.tfplan
+*.tfplan.*
+.terraformrc
+terraform.rc
+
+# Terragrunt
+**/.terragrunt-cache/*
+.terragrunt-cache/
+
+# Variable files that may contain local/private values
+*.auto.tfvars
+*.auto.tfvars.json
+secret.tfvars
+secret.tfvars.json
+*.secret.tfvars
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Credentials / keys
+*.pem
+*.key
+*.p12
+*.pfx
+
+# IDEs / editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Python / tooling caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Security scanner output
+.trivy/
+checkov-report*
+trivy-report*
+
+# Local temporary files
+tmp/
+.temp/
+.cache/
