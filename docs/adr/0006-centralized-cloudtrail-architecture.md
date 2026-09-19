@@ -79,9 +79,11 @@ The policy must preserve AWS-required ownership and ACL delivery semantics
 without granting broad account access; its final JSON is deferred.
 
 Lifecycle retention is configurable and is not frozen to an arbitrary number
-of days. S3 Object Lock is deferred. CloudTrail delegated administration,
-trusted access, the S3 bucket, the KMS key, and delivery validation are not
-implemented by this ADR or its documentation gate.
+of days. S3 Object Lock is deferred. This ADR does not itself register the
+delegated administrator, enable trusted access, create the S3 bucket or KMS
+key, or validate delivery. The separate reusable bootstrap module now defines
+the CloudTrail-specific registration resource, but its execution remains a
+management-account composition concern and no real registration is implied.
 
 Implement the future Terraform design as separate reusable modules:
 
@@ -93,7 +95,11 @@ Implement the future Terraform design as separate reusable modules:
 
 Delegated-administrator/bootstrap resources remain a separate
 organization/security composition concern. Terragrunt will compose these
-concerns and their dependencies across meaningful state boundaries later.
+concerns and their dependencies across meaningful state boundaries later. Until
+real AWS/provider validation proves the delegated-admin trail path for the
+selected Terraform provider, v1 composition will initially run the trail module
+with management-account provider context; this does not change the intended
+Security Tooling delegated-administrator architecture.
 
 ## Consequences
 

@@ -8,10 +8,11 @@ for later implementation gates, not an implementation report.
 
 The repository currently contains no deployed organization trail or CloudTrail
 delegated administrator, and no delivery validation against real AWS. The
-reusable `modules/log-archive` and `modules/cloudtrail` modules now define the
-storage foundation and approved trail configuration described here, but no
-bucket, KMS key, or trail should be inferred as deployed from those modules or
-this design document.
+reusable `modules/log-archive`, `modules/cloudtrail`, and
+`modules/cloudtrail-bootstrap` modules now define the storage foundation,
+approved trail configuration, and delegated-administrator registration
+configuration described here, but no bucket, KMS key, trail, or registration
+should be inferred as deployed from those modules or this design document.
 
 ## V1 organization trail
 
@@ -72,10 +73,37 @@ After a later bootstrap gate, it should manage the organization trail and its
 control plane using the AWS delegated-administration model. It does not own
 the durable central log-storage bucket or its KMS key.
 
-CloudTrail delegated administration is not implemented in this repository yet.
-The reusable `modules/cloudtrail` definition assumes that prerequisite context;
-its presence does not imply that delegated access, trusted service access, or
-the required service configuration currently exists.
+The reusable `modules/cloudtrail-bootstrap` module defines the management-account
+registration resource, but no registration has occurred in AWS. Registration is
+still a composition prerequisite for delegated CloudTrail administration. The
+reusable `modules/cloudtrail` definition assumes that prerequisite context; the
+presence of either module does not imply that delegated access, trusted service
+access, or the required service configuration currently exists.
+
+The CloudTrail bootstrap ordering is explicit:
+
+1. Enable AWS Organizations trusted access for `cloudtrail.amazonaws.com` from
+   the management account.
+2. Register Security Tooling as the CloudTrail delegated administrator with
+   `modules/cloudtrail-bootstrap`.
+3. Create and manage the organization trail with `modules/cloudtrail`.
+
+`modules/cloudtrail-bootstrap` implements step 2 only. Trusted-access
+enablement is a separate bootstrap or composition responsibility and is not
+implied to exist. If it is absent, delegated-admin registration can fail with
+`CloudTrailAccessNotEnabledException`.
+
+CloudTrail supports delegated administrators managing organization trails, but
+the current Terraform `aws_cloudtrail` resource documentation describes
+organization-trail creation from the management account, and historical
+provider behavior has had issues when creating an organization trail directly
+from a delegated-administrator provider context. This is a Terraform-provider
+execution and validation constraint, not an AWS limitation. V1 composition will
+initially run `modules/cloudtrail` with a management-account provider until real
+AWS/provider validation proves the delegated-admin provider context works for
+the exact provider version. This does not change the architectural ownership
+model or the intended Security Tooling delegated-administrator boundary, and
+routine human use of the management account remains minimized.
 
 ### Log Archive account
 
@@ -252,9 +280,12 @@ The reusable module now defines:
 It does not create CloudWatch Logs or SNS configuration in the v1 baseline;
 any future integration requires explicit approval.
 
-Organizations delegated-administrator and trusted-access bootstrap resources
-remain a separate organization/security composition concern. They should not
-be silently hidden inside either module.
+The reusable `modules/cloudtrail-bootstrap` module owns only the
+CloudTrail-specific delegated-administrator registration. It must be composed
+with management-account provider context and does not create trusted-access
+configuration. Other Organizations bootstrap resources remain a separate
+organization/security composition concern and should not be silently hidden
+inside the trail or storage modules.
 
 The exact root configurations and state names are not frozen by this design.
 Terragrunt will compose the account/environment stacks and explicit
@@ -270,7 +301,9 @@ inputs for the globally unique bucket name, `organization_id`,
 management-account ID and organization trail ARN, lifecycle configuration,
 approved audit-reader/recovery principals, exact KMS actions and
 encryption-context conditions, trusted-access bootstrap sequence, and delivery
-health checks.
+health checks. The delegated-administrator registration resource is defined,
+but its execution and the delegated-provider trail path still require real
+AWS/provider validation.
 Those details are implementation contracts to be reviewed against AWS service
 behavior; they are not silently decided here.
 
