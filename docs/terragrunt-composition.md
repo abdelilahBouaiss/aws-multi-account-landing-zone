@@ -27,10 +27,10 @@ live/
         └── cloudtrail-storage/
 ```
 
-The `management/organization`, `management/accounts`, and
-`management/cloudtrail-trusted-access` directories are implemented live units.
-The remaining directories are a design contract only and must not be created
-until later implementation gates.
+The `management/organization`, `management/accounts`,
+`management/cloudtrail-trusted-access`, and `management/cloudtrail-bootstrap`
+directories are implemented live units. The remaining directories are a design
+contract only and must not be created until later implementation gates.
 
 All units in this hierarchy use `eu-west-1`. Multi-Region CloudTrail coverage
 is a CloudTrail setting, not a reason to create additional v1 Terragrunt
@@ -88,9 +88,26 @@ operator or CI responsibility.
 
 ### Delegated-administrator unit
 
-This unit composes `modules/cloudtrail-bootstrap` using management-account
-provider context. It consumes the Security Tooling account ID from the future
-account-vending state and has an ordering dependency on trusted access.
+This implemented unit composes `modules/cloudtrail-bootstrap` using
+management-account provider context. It has a data dependency on
+`management/accounts` for `account_ids.security_tooling` and an independent
+ordering-only dependency on `management/cloudtrail-trusted-access`:
+
+```hcl
+dependency "accounts" {
+  config_path = "../accounts"
+}
+
+dependencies {
+  paths = ["../cloudtrail-trusted-access"]
+}
+```
+
+The accounts dependency uses a singular `dependency` block because the unit
+consumes an output. Trusted access uses plural `dependencies` because only
+execution ordering is required; no trusted-access outputs or mocks are used.
+The account dependency has validation-only synthetic account-ID mocks. No
+delegated administrator has actually been registered in AWS.
 
 ### Log Archive storage unit
 
@@ -298,7 +315,10 @@ The current foundation includes:
   `../../../../modules/account-vending`; and
 - `live/eu-west-1/management/cloudtrail-trusted-access/terragrunt.hcl`
   composing only `modules/cloudtrail-trusted-access` through the local source
-  path `../../../../modules/cloudtrail-trusted-access`.
+  path `../../../../modules/cloudtrail-trusted-access`; and
+- `live/eu-west-1/management/cloudtrail-bootstrap/terragrunt.hcl` composing
+  only `modules/cloudtrail-bootstrap` through the local source path
+  `../../../../modules/cloudtrail-bootstrap`.
 
 The generated provider uses ambient operator or CI credentials and the
 `eu-west-1` Region. The management account context is semantic configuration;
@@ -306,10 +326,11 @@ it does not verify that the caller's credentials target the Organizations
 management account. The operator or CI environment must ensure that account
 selection is correct.
 
-Delegated-administrator bootstrap, Log Archive storage, the organization
-trail, and remote state are not implemented. Trusted access has not actually
-been enabled in AWS. Local state remains suitable only for local validation
-and static development examples, not the production state architecture.
+Log Archive storage, the organization trail, and remote state are not
+implemented. Trusted access has not actually been enabled and no delegated
+administrator has been registered in AWS. Local state remains suitable only
+for local validation and static development examples, not the production state
+architecture.
 
 ## Module source strategy
 
