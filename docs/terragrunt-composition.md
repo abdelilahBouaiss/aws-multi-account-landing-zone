@@ -4,8 +4,9 @@
 
 This document freezes the first Terragrunt live-composition layout and
 dependency model for the centralized CloudTrail capability. It describes the
-composition boundary around the reusable Terraform modules, including the
-implemented foundation units and the future units that remain to be built.
+composition boundary around the reusable Terraform modules and the implemented
+v1 live units. It does not imply that those units have been applied or that
+their AWS integrations have been validated.
 
 Generated provider files, remote-state configuration, backend infrastructure,
 credentials, or real deployment are not created or implied by this design.
@@ -28,10 +29,10 @@ live/
 ```
 
 The `management/organization`, `management/accounts`,
-`management/cloudtrail-trusted-access`, `management/cloudtrail-bootstrap`, and
-`log-archive/cloudtrail-storage` directories are implemented live units. The
-remaining `management/cloudtrail` directory is a design contract only and must
-not be created until a later implementation gate.
+`management/cloudtrail-trusted-access`, `management/cloudtrail-bootstrap`,
+`management/cloudtrail`, and `log-archive/cloudtrail-storage` directories are
+implemented live units. The live configuration does not imply that any AWS
+resource has been created or validated.
 
 All units in this hierarchy use `eu-west-1`. Multi-Region CloudTrail coverage
 is a CloudTrail setting, not a reason to create additional v1 Terragrunt
@@ -120,7 +121,7 @@ singular `organization` dependency points to
 `organization_id` and `management_account_id`. The bucket name is read from
 `AWS_CLOUDTRAIL_LOG_BUCKET_NAME` with no source-code fallback, and the shared
 composition trail name is `org-audit-trail`. Its outputs include the bucket
-name and KMS key ARN that the future trail unit will consume.
+name and KMS key ARN that the organization trail unit consumes.
 
 The unit does not add an `accounts` dependency. `modules/log-archive` has no
 `log_archive_account_id` input, and the account-vending output would not
@@ -131,15 +132,24 @@ target that account. No storage resources have been created in AWS.
 
 ### Organization trail unit
 
-This unit composes `modules/cloudtrail` using management-account provider
-context in v1. This is a Terraform-provider compatibility constraint documented
-in the CloudTrail architecture: real validation has not yet established that
-the `aws_cloudtrail` resource works correctly from a delegated-administrator
-provider context.
+This implemented unit composes only `modules/cloudtrail` using management-
+account provider context in `eu-west-1`. Its singular `storage` dependency
+points to `../../log-archive/cloudtrail-storage` and consumes exactly
+`bucket_name` and `kms_key_arn`. It uses the shared composition trail name
+`org-audit-trail` and `include.region.locals.aws_region` for `home_region`.
 
-This execution choice does not change the intended Security Tooling delegated
-administrator or management-account ownership model. Routine human use of the
-management account remains minimized.
+The unit also has ordering-only dependencies on
+`../cloudtrail-trusted-access` and `../cloudtrail-bootstrap`. It consumes no
+outputs from either unit. The CloudTrail module's approved baseline controls
+the trail features; this unit adds no data events, Insights, CloudWatch Logs,
+SNS, S3 prefix, or additional trail.
+
+The management-account execution context is a provider compatibility and AWS
+organization-trail requirement documented in the CloudTrail architecture. It
+does not change the intended Security Tooling delegated administrator or
+management-account ownership model. Operator or CI credentials must actually
+target the Organizations management account; Terragrunt does not verify that
+identity. No organization trail has been created in AWS.
 
 ## Account-vending boundary
 
@@ -241,6 +251,9 @@ unused outputs merely to create ordering. Both primitives participate in the
 live orchestration graph, and dependency declarations remain in the consuming
 unit configurations rather than being hidden in root includes.
 
+The final trail unit also declares the storage output dependency and the
+trusted-access/bootstrap ordering paths directly in its own configuration.
+
 Dependency paths must remain static and simple enough for Terragrunt to build
 the graph for `run --all`. A dependency path must not itself depend on an
 unresolved dependency output. Root/common includes should not contain unit
@@ -340,7 +353,12 @@ The current foundation includes:
   only `modules/log-archive` through the local source path
   `../../../../modules/log-archive`. It consumes the organization ID and
   management-account ID from `management/organization` and reads the bucket
-  name from `AWS_CLOUDTRAIL_LOG_BUCKET_NAME`.
+  name from `AWS_CLOUDTRAIL_LOG_BUCKET_NAME`; and
+- `live/eu-west-1/management/cloudtrail/terragrunt.hcl` composing only
+  `modules/cloudtrail` through the local source path
+  `../../../../modules/cloudtrail`. It consumes the storage bucket name and
+  KMS key ARN, uses `org-audit-trail`, and follows trusted-access and
+  delegated-admin ordering dependencies.
 
 The generated provider uses ambient operator or CI credentials and the
 `eu-west-1` Region. The management account context is semantic configuration;
@@ -348,11 +366,11 @@ it does not verify that the caller's credentials target the Organizations
 management account. The operator or CI environment must ensure that account
 selection is correct.
 
-The organization trail and remote state are not implemented. Trusted access
-has not actually been enabled, no delegated administrator has been registered
-in AWS, and no Log Archive storage resources have been created in AWS. Local
-state remains suitable only for local validation and static development
-examples, not the production state architecture.
+Remote state is not implemented. Trusted access has not actually been enabled,
+no delegated administrator has been registered in AWS, no Log Archive storage
+resources have been created in AWS, and no organization trail has been created
+in AWS. Local state remains suitable only for local validation and static
+development examples, not the production state architecture.
 
 ## Module source strategy
 
@@ -422,8 +440,8 @@ authorization, role assumption, trusted access, delegated administration,
 CloudTrail delivery, or KMS/S3 service behavior. No real AWS validation is
 claimed.
 
-The next composition dependency to resolve before any actual apply is the
-organization trail unit and its storage outputs. Account-vending still
-provides the expected Log Archive account ID for composition planning, but the
-authentication implementation and remote-state design remain open. The real
-provider-context behavior for the trail also remains an implementation gate.
+The CloudTrail composition chain is now represented in live configuration.
+Before any actual apply, account-vending outputs, real provider/account
+authentication, trusted access, delegated administration, storage outputs, and
+CloudTrail delivery must be validated in AWS. Remote-state design remains
+open, as does real provider-context validation for the trail.
