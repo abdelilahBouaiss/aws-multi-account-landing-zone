@@ -28,9 +28,10 @@ live/
 ```
 
 The `management/organization`, `management/accounts`,
-`management/cloudtrail-trusted-access`, and `management/cloudtrail-bootstrap`
-directories are implemented live units. The remaining directories are a design
-contract only and must not be created until later implementation gates.
+`management/cloudtrail-trusted-access`, `management/cloudtrail-bootstrap`, and
+`log-archive/cloudtrail-storage` directories are implemented live units. The
+remaining `management/cloudtrail` directory is a design contract only and must
+not be created until a later implementation gate.
 
 All units in this hierarchy use `eu-west-1`. Multi-Region CloudTrail coverage
 is a CloudTrail setting, not a reason to create additional v1 Terragrunt
@@ -112,10 +113,21 @@ delegated administrator has actually been registered in AWS.
 
 ### Log Archive storage unit
 
-This unit composes `modules/log-archive` using Log Archive account provider
-context. It receives the organization ID, management-account ID, and trail name
-from composition/configuration. Its outputs include the bucket name and KMS
-key ARN consumed by the trail unit.
+This implemented unit composes only `modules/log-archive` using the semantic
+Log Archive account context and the generated `eu-west-1` provider. Its
+singular `organization` dependency points to
+`../../management/organization` and consumes exactly
+`organization_id` and `management_account_id`. The bucket name is read from
+`AWS_CLOUDTRAIL_LOG_BUCKET_NAME` with no source-code fallback, and the shared
+composition trail name is `org-audit-trail`. Its outputs include the bucket
+name and KMS key ARN that the future trail unit will consume.
+
+The unit does not add an `accounts` dependency. `modules/log-archive` has no
+`log_archive_account_id` input, and the account-vending output would not
+verify or switch the provider identity. The account-vending output identifies
+the intended Log Archive member account for future composition, while the
+operator or CI environment must ensure that ambient credentials actually
+target that account. No storage resources have been created in AWS.
 
 ### Organization trail unit
 
@@ -155,7 +167,7 @@ organization
     │   └── accounts
     │       └── output: Security Tooling account ID
     │           └── cloudtrail-bootstrap
-    ├── output: organization_id
+    ├── output: organization_id, management_account_id
     │   └── cloudtrail-storage
     │       └── output: bucket_name and kms_key_arn
     │           └── cloudtrail
@@ -180,7 +192,8 @@ The required relationships are:
 - `accounts -> cloudtrail-bootstrap`: output dependency for the Security
   Tooling account ID;
 - `organization -> cloudtrail-storage`: output dependency for `organization_id`
-  and `management_account_id`, with trail name supplied by composition;
+  and `management_account_id`, with the shared trail name supplied by
+  composition;
 - `organization -> cloudtrail-trusted-access`: ordering-only dependency because
   trusted access requires an existing Organization but consumes no Organization
   output;
@@ -320,7 +333,14 @@ The current foundation includes:
   path `../../../../modules/cloudtrail-trusted-access`; and
 - `live/eu-west-1/management/cloudtrail-bootstrap/terragrunt.hcl` composing
   only `modules/cloudtrail-bootstrap` through the local source path
-  `../../../../modules/cloudtrail-bootstrap`.
+  `../../../../modules/cloudtrail-bootstrap`; and
+- `live/eu-west-1/log-archive/account.hcl` identifying the semantic
+  `log-archive` provider context; and
+- `live/eu-west-1/log-archive/cloudtrail-storage/terragrunt.hcl` composing
+  only `modules/log-archive` through the local source path
+  `../../../../modules/log-archive`. It consumes the organization ID and
+  management-account ID from `management/organization` and reads the bucket
+  name from `AWS_CLOUDTRAIL_LOG_BUCKET_NAME`.
 
 The generated provider uses ambient operator or CI credentials and the
 `eu-west-1` Region. The management account context is semantic configuration;
@@ -328,11 +348,11 @@ it does not verify that the caller's credentials target the Organizations
 management account. The operator or CI environment must ensure that account
 selection is correct.
 
-Log Archive storage, the organization trail, and remote state are not
-implemented. Trusted access has not actually been enabled and no delegated
-administrator has been registered in AWS. Local state remains suitable only
-for local validation and static development examples, not the production state
-architecture.
+The organization trail and remote state are not implemented. Trusted access
+has not actually been enabled, no delegated administrator has been registered
+in AWS, and no Log Archive storage resources have been created in AWS. Local
+state remains suitable only for local validation and static development
+examples, not the production state architecture.
 
 ## Module source strategy
 
@@ -395,14 +415,15 @@ automated recovery infrastructure.
 
 ## Validation limits and unresolved work
 
-No live Terragrunt configuration, provider generation, remote state, or account
-credentials are present yet. Terragrunt parsing and Terraform plan/validate do
-not prove cross-account authorization, role assumption, trusted access,
-delegated administration, CloudTrail delivery, or KMS/S3 service behavior.
-No real AWS validation is claimed.
+Terragrunt source configuration and provider generation are present for the
+implemented units, but no remote state or account credentials are encoded.
+Terragrunt parsing and Terraform plan/validate do not prove cross-account
+authorization, role assumption, trusted access, delegated administration,
+CloudTrail delivery, or KMS/S3 service behavior. No real AWS validation is
+claimed.
 
 The next composition dependency to resolve before any actual apply is the
-account-vending unit and its outputs for the Security Tooling and Log Archive
-account IDs. The exact account-vending path, authentication implementation,
-remote-state design, and real provider-context behavior for the trail remain
-open implementation gates.
+organization trail unit and its storage outputs. Account-vending still
+provides the expected Log Archive account ID for composition planning, but the
+authentication implementation and remote-state design remain open. The real
+provider-context behavior for the trail also remains an implementation gate.
