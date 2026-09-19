@@ -6,9 +6,11 @@ This document freezes the v1 design for centralized AWS CloudTrail audit
 logging and the Log Archive storage boundary. It is an architecture contract
 for later implementation gates, not an implementation report.
 
-The repository currently contains no organization trail, S3 log bucket, KMS
-key, CloudTrail delegated administrator, or delivery validation against real
-AWS. No trail, bucket, or key should be inferred from this design document.
+The repository currently contains no organization trail or CloudTrail delegated
+administrator, and no delivery validation against real AWS. The reusable
+`modules/log-archive` module now defines the storage foundation described
+here, but no bucket or KMS key should be inferred as deployed from the module
+or this design document.
 
 ## V1 organization trail
 
@@ -97,10 +99,10 @@ from member-account and Log Archive responsibilities.
 
 ## Log Archive storage boundary
 
-The future implementation will create one dedicated S3 bucket in Log Archive
-for the organization trail. The bucket name must be supplied by composition or
-configuration because S3 names are globally unique. No company-specific name
-or account ID belongs in this repository.
+The `modules/log-archive` implementation defines one dedicated S3 bucket in
+Log Archive for the organization trail. The bucket name must be supplied by
+composition or configuration because S3 names are globally unique. No
+company-specific name or account ID belongs in this repository.
 
 The storage baseline is:
 
@@ -144,9 +146,10 @@ in Log Archive. The future key policy must be designed to:
 - avoid general `kms:Decrypt` access for workload accounts; and
 - separate key administration from key usage where practical.
 
-The final KMS policy JSON is intentionally not frozen here and no KMS key is
-implemented by this gate. If the key is disabled, or its policy no longer
-permits the required CloudTrail operations, log delivery can fail.
+The final KMS policy JSON remains an implementation contract in the module and
+no KMS key has been deployed or validated against AWS by this gate. If the key
+is disabled, or its policy no longer permits the required CloudTrail
+operations, log delivery can fail.
 
 ### Retention, lifecycle, and Object Lock
 
