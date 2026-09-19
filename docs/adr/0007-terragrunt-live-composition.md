@@ -15,9 +15,9 @@ implementation into Terragrunt.
 
 CloudTrail also has an explicit ordering relationship: trusted access must be
 enabled before delegated-administrator registration, and storage outputs must
-be available before the organization trail can be composed. The account IDs
-needed downstream are produced by account vending, but the account-vending live
-unit and exact path are not yet frozen.
+be available before the organization trail can be composed. Account IDs needed
+downstream are produced by the separate account-vending live unit at
+`live/eu-west-1/management/accounts/`.
 
 ## Options considered
 
@@ -54,6 +54,7 @@ live/
 └── eu-west-1/
     ├── management/
     │   ├── organization/
+    │   ├── accounts/
     │   ├── cloudtrail-trusted-access/
     │   ├── cloudtrail-bootstrap/
     │   └── cloudtrail/
@@ -94,10 +95,11 @@ unit, with backend configuration in root/common Terragrunt configuration and
 remote-state infrastructure as a separate concern. Backend names, locking
 mechanisms, KMS keys, and ownership are not decided here.
 
-Account vending receives its own state boundary. A future path such as
-`live/eu-west-1/management/accounts/` is recommended for evaluation, but is not
-frozen or created by this ADR. Its outputs for Security Tooling and Log Archive
-are required before actual apply of downstream CloudTrail units.
+Account vending receives its own state boundary at
+`live/eu-west-1/management/accounts/`. Its outputs for Security Tooling and Log
+Archive are required before actual apply of downstream CloudTrail units. The
+unit uses environment-supplied account owner emails; no real emails or account
+IDs are encoded in the composition.
 
 ## Consequences
 

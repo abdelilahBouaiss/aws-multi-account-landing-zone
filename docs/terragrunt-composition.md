@@ -4,12 +4,11 @@
 
 This document freezes the first Terragrunt live-composition layout and
 dependency model for the centralized CloudTrail capability. It describes the
-future composition boundary around the reusable Terraform modules; it is not a
-live configuration.
+composition boundary around the reusable Terraform modules, including the
+implemented foundation units and the future units that remain to be built.
 
-No `terragrunt.hcl` files, generated provider files, remote-state
-configuration, backend infrastructure, credentials, or real deployment are
-created or implied by this design.
+Generated provider files, remote-state configuration, backend infrastructure,
+credentials, or real deployment are not created or implied by this design.
 
 ## V1 live hierarchy
 
@@ -20,6 +19,7 @@ live/
 └── eu-west-1/
     ├── management/
     │   ├── organization/
+    │   ├── accounts/
     │   ├── cloudtrail-trusted-access/
     │   ├── cloudtrail-bootstrap/
     │   └── cloudtrail/
@@ -27,9 +27,9 @@ live/
         └── cloudtrail-storage/
 ```
 
-The `management/organization` directory is implemented as the first live unit.
-The remaining directories are a design contract only and must not be created
-until later implementation gates.
+The `management/organization` and `management/accounts` directories are
+implemented live units. The remaining directories are a design contract only
+and must not be created until later implementation gates.
 
 All units in this hierarchy use `eu-west-1`. Multi-Region CloudTrail coverage
 is a CloudTrail setting, not a reason to create additional v1 Terragrunt
@@ -40,6 +40,7 @@ Region directories.
 | Unit | Terraform module | Provider context | Responsibility and inputs |
 | --- | --- | --- | --- |
 | `management/organization` | `modules/organization` | Management account | AWS Organization and approved OUs only. Exposes organization and OU outputs. It does not include account vending. |
+| `management/accounts` | `modules/account-vending` | Management account | Creates the eight approved member accounts and places them using OU IDs from `management/organization`. Owns a separate account-vending state boundary. |
 | `management/cloudtrail-trusted-access` | `modules/cloudtrail-trusted-access` | Management account | CloudTrail trusted access only. Operationally follows organization creation. |
 | `management/cloudtrail-bootstrap` | `modules/cloudtrail-bootstrap` | Management account | CloudTrail delegated-administrator registration only. Consumes the Security Tooling account ID and follows trusted access. |
 | `log-archive/cloudtrail-storage` | `modules/log-archive` | Log Archive account | S3/KMS log storage only. Consumes `organization_id`, `management_account_id`, and `trail_name`. |
@@ -53,6 +54,19 @@ modules continue to contain no provider blocks or aliases.
 This unit composes only `modules/organization`. Its state owns the AWS
 Organization and approved OUs and exposes outputs such as the organization ID
 and OU IDs. Account creation is deliberately not placed in this state.
+
+### Account-vending unit
+
+This unit composes only `modules/account-vending` using management-account
+provider context. It consumes the `top_level_ou_ids` and `workload_ou_ids`
+outputs from `management/organization`, and defines the frozen eight-account
+map explicitly. Owner emails are read from environment variables with no
+source-code fallback; no real account emails are stored in Git.
+
+The unit has its own state boundary. Its resulting `account_ids` output map,
+including the `security_tooling` and `log_archive` IDs, will later feed CloudTrail
+delegated-administrator/bootstrap and Log Archive composition. No account
+creation has been performed by this documentation or composition change.
 
 ### Trusted-access unit
 
@@ -87,22 +101,18 @@ management account remains minimized.
 
 ## Account-vending boundary
 
-The approved live tree intentionally does not include account vending yet.
-Account vending must receive its own deployable state/unit because account
-creation has a separate lifecycle and blast radius from Organization/OU
-creation, and downstream units require the Security Tooling and Log Archive
-account IDs.
-
-A future unit such as the following is recommended, but its exact path is not
-frozen by this gate:
+Account vending has its own deployable state/unit because account creation has
+a separate lifecycle and blast radius from Organization/OU creation, and
+downstream units require the Security Tooling and Log Archive account IDs. The
+exact path is now frozen as:
 
 ```text
 live/eu-west-1/management/accounts/
 ```
 
-Before any real apply, composition must resolve this dependency and wire the
-account-vending outputs to downstream units. The organization and account
-vending states must not become one organization-wide state.
+Before any real apply, composition must wire the account-vending outputs to
+downstream units. The organization and account-vending states must not become
+one organization-wide state. Remote state remains deferred.
 
 ## Dependency graph
 
@@ -270,7 +280,10 @@ The current foundation includes:
   `management` provider context; and
 - `live/eu-west-1/management/organization/terragrunt.hcl` composing only
   `modules/organization` through the local source path
-  `../../../../modules/organization`.
+  `../../../../modules/organization`; and
+- `live/eu-west-1/management/accounts/terragrunt.hcl` composing only
+  `modules/account-vending` through the local source path
+  `../../../../modules/account-vending`.
 
 The generated provider uses ambient operator or CI credentials and the
 `eu-west-1` Region. The management account context is semantic configuration;
@@ -278,11 +291,10 @@ it does not verify that the caller's credentials target the Organizations
 management account. The operator or CI environment must ensure that account
 selection is correct.
 
-Account vending, CloudTrail trusted access, delegated-administrator bootstrap,
-Log Archive storage, the organization trail, remote state, and the remaining
-live units are not implemented. Local state remains suitable only for local
-validation and static development examples, not the production state
-architecture.
+CloudTrail trusted access, delegated-administrator bootstrap, Log Archive
+storage, the organization trail, and remote state are not implemented. Local
+state remains suitable only for local validation and static development
+examples, not the production state architecture.
 
 ## Module source strategy
 
