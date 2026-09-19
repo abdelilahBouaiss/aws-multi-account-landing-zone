@@ -55,5 +55,6 @@ defined in `docs/scp-rollout.md`.
 - Exact policy JSON, API action lists, global-service exceptions, automation
   role exceptions, and root-user exception sets remain implementation decisions
   until they are validated.
-- The strategy does not claim that any SCP has been implemented, attached, or
-  validated against production AWS.
+- The repository may implement policy definitions and mocked tests without
+  claiming that any SCP has been attached, enforced, or validated against
+  production AWS.

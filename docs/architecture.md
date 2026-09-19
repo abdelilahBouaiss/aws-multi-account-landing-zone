@@ -3,9 +3,9 @@
 ## Purpose
 
 This repository documents a clean-room reconstruction of an AWS multi-account
-landing-zone architecture. The architecture is intended to make account
-boundaries, security responsibilities, network isolation, and infrastructure
-composition explicit before implementation begins.
+landing-zone architecture. The architecture makes account boundaries, security
+responsibilities, network isolation, and infrastructure composition explicit
+before and alongside implementation.
 
 The primary AWS region is `eu-west-1`. AWS Organizations provides the account
 and organizational-unit hierarchy. The Organizations management account is
@@ -45,6 +45,70 @@ account-vending functionality. The account hierarchy is an architectural
 boundary; it does not by itself imply that every account has been created or
 that the architecture has been deployed or validated against AWS.
 
+## Control and composition relationships
+
+The following relationships describe the implemented Terraform/Terragrunt
+boundaries and intended AWS control flow. They do not represent deployed
+resources or successful AWS integration.
+
+```mermaid
+flowchart LR
+    ORG[Organizations and OUs]
+    VEND[Account-vending state]
+    SCP[SCP policy modules / attachment interfaces]
+    TRUST[CloudTrail trusted access]
+    ADMIN[CloudTrail delegated-admin bootstrap]
+    STORAGE[Log Archive state<br/>S3 and KMS]
+    TRAIL[Organization trail state]
+
+    MEMBERS[Governed member accounts and OUs]
+
+    ORG --> VEND
+    ORG --> SCP
+    ORG --> TRUST
+    ORG --> STORAGE
+    VEND --> MEMBERS
+    TRUST --> ADMIN
+    TRUST --> TRAIL
+    ADMIN --> TRAIL
+    STORAGE --> TRAIL
+    SCP -. staged attachment / governance .-> MEMBERS
+```
+
+SCP definitions and caller-controlled attachment interfaces are implemented,
+along with rollout documentation and tests. SCPs govern principals in
+attached member accounts and OUs; they do not apply to Terraform state, grant
+permissions, or constrain principals in the Organizations management account.
+No SCP live Terragrunt/state unit or real AWS attachment/enforcement is
+implemented. Terragrunt uses separate state boundaries for the implemented
+Organization/OUs, account-vending, trusted-access, delegated-administration,
+Log Archive storage, and organization-trail units. SCP definitions and
+attachment interfaces are not represented by a live Terragrunt/state unit.
+Terragrunt expresses output dependencies separately from ordering-only
+dependencies.
+
+## Implementation status
+
+Implemented in repository code:
+
+- Organization and approved OU Terraform module;
+- member-account vending Terraform module;
+- five SCP policy definitions with caller-controlled attachment maps;
+- CloudTrail trusted-access, delegated-admin, Log Archive storage, and
+  organization-trail Terraform modules; and
+- Terragrunt live units for the v1 centralized CloudTrail composition chain.
+
+Design-only or not validated against real AWS:
+
+- account creation, account readiness, and cross-account authentication;
+- SCP attachment enforcement and staged promotion;
+- trusted access and delegated-administrator behavior;
+- S3/KMS/CloudTrail delivery and object-arrival evidence;
+- Security Hub, GuardDuty, IAM Identity Center, networking, and workload
+  infrastructure resources;
+- remote-state infrastructure and backend configuration; and
+- CI workflows and the `scripts/ci/` implementation layer.
+
 ## Account-category responsibilities
 
 - **Management account:** Organizations-level functions that require the
@@ -82,8 +146,9 @@ Terraform provides reusable, environment-agnostic infrastructure modules.
 Terragrunt composes account and environment stacks and their dependencies.
 Terraform state is divided across meaningful architectural domains and account
 boundaries rather than held in one organization-wide state. GitHub Actions is
-the CI orchestrator, with substantive CI logic intended to live under
-`scripts/ci/`. The repository is licensed under Apache-2.0.
+the approved future CI orchestrator, with substantive CI logic intended to
+live under `scripts/ci/`; no workflow is currently committed. The repository
+is licensed under Apache-2.0.
 
 ## Deliberately deferred from v1
 

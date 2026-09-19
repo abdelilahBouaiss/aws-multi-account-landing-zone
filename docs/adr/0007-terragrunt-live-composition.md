@@ -118,5 +118,7 @@ IDs are encoded in the composition.
   choice for the trail despite Security Tooling being the intended delegated
   administrator; this preserves a documented compatibility safeguard pending
   real AWS/provider validation.
-- No live Terragrunt configuration, generated provider, remote state, account
-  credential, deployment, or real AWS validation is implied by this ADR.
+- No deployment, account credential, remote state, or real AWS validation is
+  implied by this ADR. The live Terragrunt configuration and provider
+  generation described here are repository source, not evidence of applied
+  infrastructure.

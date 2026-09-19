@@ -19,18 +19,21 @@ Identity Center, SCPs, accounts, networking, or Terragrunt composition.
 
 ## Execution and ownership model
 
-The module is intended to run with the future Security Tooling CloudTrail
-delegated-administrator provider context. Registering that delegated
-administrator is a prerequisite and is outside this module. The module does
-not infer or register the relationship and does not contain provider aliases.
+The architecture intends for Security Tooling to become the CloudTrail
+delegated administrator. Registering that delegated administrator is a
+prerequisite and is outside this module. V1 live composition uses the
+management-account provider context because the selected Terraform provider
+execution path has not been validated from a delegated-administrator context.
+The module does not infer or register the relationship and does not contain
+provider aliases.
 
 The Organizations management account remains the service-level owner of the
 organization trail even when Security Tooling manages it through delegated
 administration. The actual trail home Region comes from the AWS provider
 context. `home_region` records the approved architecture and is fixed to
 `eu-west-1`; a resource precondition fails if the provider Region differs.
-Composition must therefore pass a Security Tooling provider configured for
-`eu-west-1`.
+Composition must therefore pass a provider configured for `eu-west-1`; the v1
+composition currently supplies the management-account provider.
 
 Real organization-trail creation can involve AWS-managed Organizations and
 CloudTrail integration, trusted access, and service-linked-role behavior. Those

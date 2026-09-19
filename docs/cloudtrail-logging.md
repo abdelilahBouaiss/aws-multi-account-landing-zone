@@ -3,8 +3,9 @@
 ## Purpose and status
 
 This document freezes the v1 design for centralized AWS CloudTrail audit
-logging and the Log Archive storage boundary. It is an architecture contract
-for later implementation gates, not an implementation report.
+logging and the Log Archive storage boundary. It remains the architecture
+contract for the implemented modules and live composition; it is not a
+deployment report.
 
 The repository currently contains no deployed organization trail, trusted
 access, or CloudTrail delegated administrator, and no delivery validation
@@ -152,10 +153,10 @@ The storage baseline is:
 - no broad wildcard account access; and
 - no default direct read access for member workload accounts.
 
-The future bucket policy must preserve the AWS-required ownership and ACL
-delivery semantics for CloudTrail while keeping the grant limited to the
-required service operations and organization log path. It must not grant broad
-account access. The final bucket-policy JSON is intentionally deferred.
+The implemented `modules/log-archive` bucket policy preserves the AWS-required
+ownership and ACL delivery semantics for CloudTrail while keeping the grant
+limited to the required service operations and organization log path. It does
+not grant broad account access. Real AWS delivery validation remains deferred.
 
 The `organization_id` used in `AWSLogs/<organization-id>/*` is a composition
 input and must not be hardcoded. The organization trail ARN used in
@@ -167,7 +168,8 @@ inputs, not repository constants.
 ### Encryption
 
 CloudTrail will use SSE-KMS with a customer-managed symmetric KMS key located
-in Log Archive. The future key policy must be designed to:
+in Log Archive. The implemented `modules/log-archive` key policy is designed
+to:
 
 - permit `cloudtrail.amazonaws.com` only for the required cryptographic
   operations;
@@ -200,10 +202,10 @@ level. Security Tooling is the intended delegated administrator, while the S3
 bucket and KMS key are owned by Log Archive. This split requires carefully
 scoped S3 and KMS resource policies.
 
-The future bucket policy must authorize only the required CloudTrail delivery
-operations and use the organization trail ARN as the source constraint. The
-future KMS policy must similarly scope CloudTrail cryptographic use. These
-policies must not become broad account-wide grants.
+The bucket policy authorizes only the required CloudTrail delivery operations
+and uses the organization trail ARN as the source constraint. The KMS policy
+similarly scopes CloudTrail cryptographic use. These policies must not become
+broad account-wide grants, and their real AWS behavior remains unvalidated.
 
 ## Delivery health and validation
 
@@ -257,9 +259,9 @@ single-Region trail merely because workloads target `eu-west-1`.
 These are architecture-level signals and recovery directions. This gate does
 not create monitoring, alerting, notification, or recovery infrastructure.
 
-## Future Terraform and state boundaries
+## Terraform and state boundaries
 
-The preferred reusable-module decomposition is:
+The reusable-module decomposition is:
 
 ### `modules/log-archive`
 
@@ -289,28 +291,28 @@ composed with management-account provider context. Other Organizations
 bootstrap resources remain a separate organization/security composition concern
 and should not be silently hidden inside the trail or storage modules.
 
-The exact root configurations and state names are not frozen by this design.
-Terragrunt will compose the account/environment stacks and explicit
-dependencies later, with separate state boundaries for the log-storage,
-trusted-access, delegated-administrator, and CloudTrail concerns where the
-final composition requires them.
+The current Terragrunt live composition wires the account/environment stacks
+and explicit dependencies with separate state boundaries for log storage,
+trusted access, delegated administration, and CloudTrail. Remote-state
+configuration and backend names remain deferred.
 The design intentionally avoids one organization-wide logging state and avoids
 a giant logging module.
 
 ## Deferred implementation questions
 
-Later implementation gates must still define and validate the composition
-inputs for the globally unique bucket name, `organization_id`,
-management-account ID and organization trail ARN, lifecycle configuration,
-approved audit-reader/recovery principals, exact KMS actions and
-encryption-context conditions, and delivery health checks. Trusted-access and
-delegated-administrator resources are defined, but their execution and the
-delegated-provider trail path still require real AWS/provider validation.
-Those details are implementation contracts to be reviewed against AWS service
-behavior; they are not silently decided here.
+Remaining validation work includes the globally unique bucket name,
+`organization_id`, management-account ID and organization trail ARN at apply
+time, lifecycle configuration, any approved audit-reader/recovery principals,
+delivery health checks, and the exact AWS behavior of trusted access,
+delegated administration, and the selected provider execution path. These
+details are implementation and operational validation concerns, not claims of
+successful AWS deployment.
 
 ## Status
 
-This is an approved v1 architecture design only. No organization trail, Log
-Archive bucket, KMS key, delegated administrator, CloudWatch Logs delivery, SNS
-notification, or real AWS validation exists as a result of this gate.
+This is an approved v1 architecture record with reusable Terraform modules and
+Terragrunt composition present in the repository. No organization trail, Log
+Archive bucket, KMS key, or delegated administrator has been created or
+demonstrated in AWS as part of this reconstruction, and no real AWS delivery
+validation has occurred. CloudWatch Logs delivery and SNS notifications remain
+outside the v1 baseline.

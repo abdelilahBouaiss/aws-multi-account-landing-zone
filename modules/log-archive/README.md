@@ -17,15 +17,15 @@ It does not create an `aws_cloudtrail` resource, delegated administrator,
 Organizations trusted access, CloudWatch Logs, SNS, security services,
 identity services, workload infrastructure, or Terragrunt live composition.
 
-The module prepares the destination before a later `modules/cloudtrail` gate
-creates the organization trail. It does not imply that any AWS resource has
-been deployed or that log delivery has been validated.
+The module prepares the destination for a later apply of the separately
+composed `modules/cloudtrail` trail. It does not imply that any AWS resource
+has been deployed or that log delivery has been validated.
 
 ## Ownership model
 
 The S3 bucket and KMS key are intended to reside in the Log Archive account.
 The organization trail is owned at the AWS service level by the Organizations
-management account, while Security Tooling is the intended future CloudTrail
+management account, while Security Tooling is the intended CloudTrail
 delegated administrator. This module does not implement that delegated
 administration or bootstrap.
 

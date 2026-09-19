@@ -11,7 +11,8 @@ boundary without turning the Organizations management account into the routine
 security or logging operations account. CloudTrail organization trails,
 cross-account S3 delivery, customer-managed KMS encryption, delegated
 administration, and staged security controls have different ownership and
-failure boundaries that must be explicit before Terraform implementation.
+failure boundaries that must remain explicit during Terraform implementation
+and live composition.
 
 The design must also distinguish trail creation from actual log delivery. A
 trail can exist while S3 or KMS resource policies prevent useful audit
@@ -71,8 +72,8 @@ digest objects. The cross-account S3 and KMS resource policies must be
 narrowly scoped to CloudTrail and the organization trail ARN, whose management
 account ID is supplied by composition rather than hardcoded.
 
-The future CloudTrail bucket policy must authorize `s3:GetBucketAcl` on the
-destination bucket and `s3:PutObject` for delivered trail objects under
+The CloudTrail bucket policy must authorize `s3:GetBucketAcl` on the destination
+bucket and `s3:PutObject` for delivered trail objects under
 `AWSLogs/<organization-id>/*`. The `organization_id`, management-account ID,
 and organization trail ARN are composition inputs and must not be hardcoded.
 The policy must preserve AWS-required ownership and ACL delivery semantics
@@ -85,7 +86,7 @@ key, or validate delivery. The separate reusable bootstrap module now defines
 the CloudTrail-specific registration resource, but its execution remains a
 management-account composition concern and no real registration is implied.
 
-Implement the future Terraform design as separate reusable modules:
+Implement this design as separate reusable modules:
 
 - `modules/log-archive` for the S3 bucket, bucket controls, CloudTrail bucket
   policy, KMS key/key policy, and lifecycle configuration; and
@@ -94,12 +95,12 @@ Implement the future Terraform design as separate reusable modules:
   later approved.
 
 Delegated-administrator/bootstrap resources remain a separate
-organization/security composition concern. Terragrunt will compose these
-concerns and their dependencies across meaningful state boundaries later. Until
-real AWS/provider validation proves the delegated-admin trail path for the
-selected Terraform provider, v1 composition will initially run the trail module
-with management-account provider context; this does not change the intended
-Security Tooling delegated-administrator architecture.
+organization/security composition concern. Terragrunt composes these concerns
+and their dependencies across meaningful state boundaries. Until real
+AWS/provider validation proves the delegated-admin trail path for the selected
+Terraform provider, v1 composition runs the trail module with management-account
+provider context; this does not change the intended Security Tooling
+delegated-administrator architecture.
 
 ## Consequences
 

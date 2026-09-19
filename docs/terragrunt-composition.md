@@ -8,8 +8,9 @@ composition boundary around the reusable Terraform modules and the implemented
 v1 live units. It does not imply that those units have been applied or that
 their AWS integrations have been validated.
 
-Generated provider files, remote-state configuration, backend infrastructure,
-credentials, or real deployment are not created or implied by this design.
+Generated provider files are runtime artifacts and are not committed. Remote
+state, backend infrastructure, credentials, or real deployment are not created
+or implied by this design.
 
 ## V1 live hierarchy
 
@@ -319,8 +320,8 @@ appropriate to their location. Root/common configuration should contain common
 Terraform source conventions, future remote-state configuration, provider
 generation primitives, and common tags only when those tags have meaningful
 semantics. Region configuration should contain `region = "eu-west-1"`.
-Account configuration should later contain account role/context metadata
-supplied by composition.
+Account configuration contains semantic account role/context metadata supplied
+by composition; authentication remains an operator/CI concern.
 
 Dependencies belong in the unit that consumes the output, not in the root
 include, unless a later Terragrunt implementation demonstrates a compelling
