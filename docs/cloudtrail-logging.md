@@ -6,11 +6,12 @@ This document freezes the v1 design for centralized AWS CloudTrail audit
 logging and the Log Archive storage boundary. It is an architecture contract
 for later implementation gates, not an implementation report.
 
-The repository currently contains no organization trail or CloudTrail delegated
-administrator, and no delivery validation against real AWS. The reusable
-`modules/log-archive` module now defines the storage foundation described
-here, but no bucket or KMS key should be inferred as deployed from the module
-or this design document.
+The repository currently contains no deployed organization trail or CloudTrail
+delegated administrator, and no delivery validation against real AWS. The
+reusable `modules/log-archive` and `modules/cloudtrail` modules now define the
+storage foundation and approved trail configuration described here, but no
+bucket, KMS key, or trail should be inferred as deployed from those modules or
+this design document.
 
 ## V1 organization trail
 
@@ -72,8 +73,9 @@ control plane using the AWS delegated-administration model. It does not own
 the durable central log-storage bucket or its KMS key.
 
 CloudTrail delegated administration is not implemented in this repository yet.
-The intended role of Security Tooling does not imply that delegated access,
-trusted service access, or the required service configuration currently exists.
+The reusable `modules/cloudtrail` definition assumes that prerequisite context;
+its presence does not imply that delegated access, trusted service access, or
+the required service configuration currently exists.
 
 ### Log Archive account
 
@@ -241,13 +243,14 @@ Owns:
 
 ### `modules/cloudtrail`
 
-Owns:
+The reusable module now defines:
 
 - the organization CloudTrail trail;
 - management-event selectors/configuration;
-- log-file validation; and
-- optional future CloudWatch Logs or SNS integration only after explicit
-  approval.
+- log-file validation.
+
+It does not create CloudWatch Logs or SNS configuration in the v1 baseline;
+any future integration requires explicit approval.
 
 Organizations delegated-administrator and trusted-access bootstrap resources
 remain a separate organization/security composition concern. They should not
