@@ -27,8 +27,9 @@ live/
         └── cloudtrail-storage/
 ```
 
-These directories are a design contract only. They must not be created until a
-later implementation gate.
+The `management/organization` directory is implemented as the first live unit.
+The remaining directories are a design contract only and must not be created
+until later implementation gates.
 
 All units in this hierarchy use `eu-west-1`. Multi-Region CloudTrail coverage
 is a CloudTrail setting, not a reason to create additional v1 Terragrunt
@@ -258,6 +259,30 @@ supplied by composition.
 Dependencies belong in the unit that consumes the output, not in the root
 include, unless a later Terragrunt implementation demonstrates a compelling
 reason otherwise.
+
+### Current implementation status
+
+The current foundation includes:
+
+- `live/root.hcl` with common provider generation behavior;
+- `live/eu-west-1/region.hcl` defining the `eu-west-1` Region contract;
+- `live/eu-west-1/management/account.hcl` identifying the semantic
+  `management` provider context; and
+- `live/eu-west-1/management/organization/terragrunt.hcl` composing only
+  `modules/organization` through the local source path
+  `../../../../modules/organization`.
+
+The generated provider uses ambient operator or CI credentials and the
+`eu-west-1` Region. The management account context is semantic configuration;
+it does not verify that the caller's credentials target the Organizations
+management account. The operator or CI environment must ensure that account
+selection is correct.
+
+Account vending, CloudTrail trusted access, delegated-administrator bootstrap,
+Log Archive storage, the organization trail, remote state, and the remaining
+live units are not implemented. Local state remains suitable only for local
+validation and static development examples, not the production state
+architecture.
 
 ## Module source strategy
 
