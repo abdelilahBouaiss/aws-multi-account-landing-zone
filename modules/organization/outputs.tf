@@ -8,6 +8,11 @@ output "organization_arn" {
   value       = aws_organizations_organization.this.arn
 }
 
+output "management_account_id" {
+  description = "The AWS account ID of the Organizations management account, exposed for downstream composition."
+  value       = aws_organizations_organization.this.master_account_id
+}
+
 output "root_id" {
   description = "The ID of the AWS Organizations root that contains the member-account OUs."
   value       = aws_organizations_organization.this.roots[0].id

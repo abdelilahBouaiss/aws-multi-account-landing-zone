@@ -1,8 +1,9 @@
 mock_provider "aws" {
   mock_resource "aws_organizations_organization" {
     defaults = {
-      arn = "arn:aws:organizations::000000000000:organization/o-example"
-      id  = "o-example"
+      arn               = "arn:aws:organizations::000000000000:organization/o-example"
+      id                = "o-example"
+      master_account_id = "111111111111"
       roots = [{
         arn          = "arn:aws:organizations::000000000000:root/o-example/r-example"
         id           = "r-example"
@@ -89,8 +90,8 @@ run "organization_hierarchy" {
   }
 
   assert {
-    condition     = output.organization_id == aws_organizations_organization.this.id && output.organization_arn == aws_organizations_organization.this.arn && output.root_id == aws_organizations_organization.this.roots[0].id
-    error_message = "Outputs must expose the organization ID, ARN, and root ID."
+    condition     = output.organization_id == aws_organizations_organization.this.id && output.organization_arn == aws_organizations_organization.this.arn && output.management_account_id == aws_organizations_organization.this.master_account_id && output.root_id == aws_organizations_organization.this.roots[0].id
+    error_message = "Outputs must expose the organization ID, ARN, management-account ID, and root ID."
   }
 
   assert {

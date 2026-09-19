@@ -40,7 +40,7 @@ Region directories.
 
 | Unit | Terraform module | Provider context | Responsibility and inputs |
 | --- | --- | --- | --- |
-| `management/organization` | `modules/organization` | Management account | AWS Organization and approved OUs only. Exposes organization and OU outputs. It does not include account vending. |
+| `management/organization` | `modules/organization` | Management account | AWS Organization and approved OUs only. Exposes organization ID, management-account ID, and OU outputs. It does not include account vending. |
 | `management/accounts` | `modules/account-vending` | Management account | Creates the eight approved member accounts and places them using OU IDs from `management/organization`. Owns a separate account-vending state boundary. |
 | `management/cloudtrail-trusted-access` | `modules/cloudtrail-trusted-access` | Management account | CloudTrail trusted access only. Operationally follows organization creation. |
 | `management/cloudtrail-bootstrap` | `modules/cloudtrail-bootstrap` | Management account | CloudTrail delegated-administrator registration only. Consumes the Security Tooling account ID and follows trusted access. |
@@ -53,8 +53,9 @@ modules continue to contain no provider blocks or aliases.
 ### Management organization unit
 
 This unit composes only `modules/organization`. Its state owns the AWS
-Organization and approved OUs and exposes outputs such as the organization ID
-and OU IDs. Account creation is deliberately not placed in this state.
+Organization and approved OUs and exposes `organization_id`,
+`management_account_id`, and the OU ID maps. Account creation is deliberately
+not placed in this state.
 
 ### Account-vending unit
 
@@ -150,7 +151,7 @@ They are not interchangeable.
 
 ```text
 organization
-    ├── output: OU and organization identifiers
+    ├── output: organization_id, management_account_id, and OU IDs
     │   └── accounts
     │       └── output: Security Tooling account ID
     │           └── cloudtrail-bootstrap
@@ -178,8 +179,8 @@ The required relationships are:
   composition;
 - `accounts -> cloudtrail-bootstrap`: output dependency for the Security
   Tooling account ID;
-- `organization -> cloudtrail-storage`: output dependency for the organization
-  ID, with management-account ID and trail name supplied by composition;
+- `organization -> cloudtrail-storage`: output dependency for `organization_id`
+  and `management_account_id`, with trail name supplied by composition;
 - `organization -> cloudtrail-trusted-access`: ordering-only dependency because
   trusted access requires an existing Organization but consumes no Organization
   output;
@@ -309,7 +310,8 @@ The current foundation includes:
   `management` provider context; and
 - `live/eu-west-1/management/organization/terragrunt.hcl` composing only
   `modules/organization` through the local source path
-  `../../../../modules/organization`; and
+  `../../../../modules/organization`. Its outputs include
+  `organization_id`, `management_account_id`, and the OU ID maps; and
 - `live/eu-west-1/management/accounts/terragrunt.hcl` composing only
   `modules/account-vending` through the local source path
   `../../../../modules/account-vending`; and

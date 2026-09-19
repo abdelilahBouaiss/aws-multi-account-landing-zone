@@ -62,6 +62,9 @@ Organizations resource.
 
 - `organization_id`: AWS Organization ID.
 - `organization_arn`: AWS Organization ARN.
+- `management_account_id`: AWS account ID of the Organizations management
+  account, intended for downstream controls and resources such as centralized
+  CloudTrail composition.
 - `root_id`: AWS Organizations root ID.
 - `top_level_ou_ids`: map keyed by `security`, `infrastructure`, `workloads`,
   `sandbox`, and `policy_staging`.
