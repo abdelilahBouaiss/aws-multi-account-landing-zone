@@ -59,3 +59,7 @@ trivy-report*
 tmp/
 .temp/
 .cache/
+
+# Local AWS-compatible integration runtime
+tests/integration/.runtime/
+tests/integration/**/.terraform.lock.hcl

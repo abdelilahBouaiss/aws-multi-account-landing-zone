@@ -12,7 +12,8 @@ results. No validation described here requires or implies an AWS apply.
 | Terragrunt rendering | Passed locally | `terragrunt render` succeeded for all six live units with synthetic bucket, account-email, and dependency values. | Unapplied upstream state can cause mock-output warnings or fallback behavior. |
 | Terragrunt validation | Blocked in the current environment | `terragrunt validate` was attempted for the live units, but Terraform could not resolve the AWS provider from the available mirror during the Terragrunt-initialized runs. | No claim of a repository-wide clean Terragrunt validation run. |
 | Local AWS provider mirror | Used for selected validation | Terraform AWS provider 6.65.0 was supplied from a local filesystem mirror/cache. | The mirror/cache distributes the provider only; it does not validate AWS authentication or service behavior. |
-| Real AWS validation | Not performed | No AWS credentials or mutation used. | Account creation, policy enforcement, delegated administration, delivery, and cross-account behavior remain unverified. |
+| Local AWS-compatible integration | Partially exercised locally | `tests/integration/run.sh` and `verify.sh` passed locally for connectivity, Organizations/OUs, account vending and parent placement, SCP creation plus limited attachment, trusted-access resource creation, and Log Archive S3/KMS storage. Delegated-admin registration was unsupported by the local API; the organization trail was blocked by that prerequisite and log delivery was not exercised. | Integration-tested locally against AWS-compatible APIs does not prove AWS service behavior, account semantics, delivery, production readiness, or real AWS compatibility. |
+| Real AWS validation | Not performed | No real AWS credentials were used and no AWS service mutations were performed. | Account creation, policy enforcement, delegated administration, delivery, and cross-account behavior remain unverified. |
 
 ## Safe validation policy
 

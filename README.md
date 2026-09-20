@@ -168,6 +168,16 @@ No AWS credentials are required for the repository's mocked tests, and no
 `apply` or `destroy` should be run as part of local validation. The detailed
 status matrix is linked above.
 
+Selected landing-zone paths are integration-tested locally against
+AWS-compatible APIs using synthetic credentials and an explicit local
+endpoint. Current local evidence covers Organizations/OUs, account vending,
+SCP creation and limited attachment, trusted-access resource creation, and
+Log Archive S3/KMS storage. Delegated-admin registration is unsupported by the
+local API, so organization-trail creation and log delivery were not exercised.
+This does not constitute real AWS validation. See
+[tests/integration/README.md](tests/integration/README.md) for its safety
+boundary and current limitations.
+
 ## Failure and recovery thinking
 
 The repository treats wrong account context, missing dependency state, account
