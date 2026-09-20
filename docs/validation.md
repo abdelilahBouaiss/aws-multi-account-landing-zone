@@ -1,7 +1,10 @@
 # Repository validation matrix
 
-This matrix records repository validation, not deployment or AWS integration
-results. No validation described here requires or implies an AWS apply.
+This matrix records repository validation evidence. Static, mocked, and
+Terragrunt validation do not require an AWS apply. The isolated
+`tests/integration` harness executes Terraform apply/destroy only against the
+explicit local AWS-compatible endpoint and does not constitute real AWS
+validation.
 
 | Area | Status | Evidence or method | Boundary |
 | --- | --- | --- | --- |
@@ -20,4 +23,8 @@ results. No validation described here requires or implies an AWS apply.
 Use synthetic IDs, example.com email values, and validation-only bucket/KMS
 values. Dependency mocks are permitted only for non-mutating validation and are
 not evidence that upstream infrastructure exists. Do not run `apply` or
-`destroy` as part of this repository-level validation workflow.
+`destroy` during static, mocked, module-level, or normal Terragrunt validation.
+Apply/destroy are permitted only through the isolated `tests/integration`
+harness, which fails closed unless the explicit approved local AWS-compatible
+endpoint is configured. Real AWS apply/destroy is not part of this repository
+validation.

@@ -67,6 +67,9 @@ again independently with:
 ./tests/integration/verify.sh
 ```
 
+Apply and destroy are intentionally confined to this harness and its approved
+local endpoint; they are not real AWS validation.
+
 After inspection, destroy only the integration resources and remove runtime
 artifacts with:
 

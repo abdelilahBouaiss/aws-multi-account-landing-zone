@@ -164,9 +164,11 @@ was exercised across all live units, but no clean repository-wide Terraform or
 Terragrunt validation rerun is claimed. See [docs/validation.md](docs/validation.md)
 for the evidence and boundaries.
 
-No AWS credentials are required for the repository's mocked tests, and no
-`apply` or `destroy` should be run as part of local validation. The detailed
-status matrix is linked above.
+No AWS credentials are required for the repository's mocked tests. No
+`apply` or `destroy` should be used for static/mocked module validation or
+normal Terragrunt inspection. Apply/destroy are confined to the isolated
+`tests/integration` harness and only against its explicit local AWS-compatible
+endpoint. The detailed status matrix is linked above.
 
 Selected landing-zone paths are integration-tested locally against
 AWS-compatible APIs using synthetic credentials and an explicit local

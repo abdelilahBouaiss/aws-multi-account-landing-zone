@@ -35,13 +35,43 @@ destroy_phase() {
   TF_DATA_DIR="$data_dir" terraform -chdir="$root" destroy -auto-approve -input=false -no-color -state="$state_file" -var-file="$vars_file"
 }
 
-destroy_phase "organization CloudTrail" cloudtrail cloudtrail cloudtrail
-destroy_phase "delegated admin" delegated-admin delegated-admin delegated-admin
-destroy_phase "trusted access" trusted-access trusted-access trusted-access
-destroy_phase "SCP policy creation and attachment" scp scp scp
-destroy_phase "Log Archive S3/KMS storage" log-archive log-archive log-archive
-destroy_phase "account vending" account-vending account-vending account-vending
-destroy_phase "organization" organization organization organization
+cleanup_failed=0
+failed_phases=()
+
+if ! destroy_phase "organization CloudTrail" cloudtrail cloudtrail cloudtrail; then
+  cleanup_failed=1
+  failed_phases+=("organization CloudTrail")
+fi
+if ! destroy_phase "delegated admin" delegated-admin delegated-admin delegated-admin; then
+  cleanup_failed=1
+  failed_phases+=("delegated admin")
+fi
+if ! destroy_phase "trusted access" trusted-access trusted-access trusted-access; then
+  cleanup_failed=1
+  failed_phases+=("trusted access")
+fi
+if ! destroy_phase "SCP policy creation and attachment" scp scp scp; then
+  cleanup_failed=1
+  failed_phases+=("SCP policy creation and attachment")
+fi
+if ! destroy_phase "Log Archive S3/KMS storage" log-archive log-archive log-archive; then
+  cleanup_failed=1
+  failed_phases+=("Log Archive S3/KMS storage")
+fi
+if ! destroy_phase "account vending" account-vending account-vending account-vending; then
+  cleanup_failed=1
+  failed_phases+=("account vending")
+fi
+if ! destroy_phase "organization" organization organization organization; then
+  cleanup_failed=1
+  failed_phases+=("organization")
+fi
+
+if [[ "$cleanup_failed" -ne 0 ]]; then
+  printf 'Cleanup failed for: %s\n' "${failed_phases[*]}" >&2
+  echo "Preserving $RUNTIME_DIR for inspection and retry." >&2
+  exit 1
+fi
 
 find "$SCRIPT_DIR/terraform" -type d -name .terraform -prune -exec rm -rf {} +
 find "$SCRIPT_DIR/terraform" -type f -name .terraform.lock.hcl -delete
