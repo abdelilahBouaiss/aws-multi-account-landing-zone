@@ -29,7 +29,23 @@ The approved v1 design therefore uses:
 The primary AWS Region for regional provider configuration is `eu-west-1`.
 AWS Organizations itself is global.
 
+## At a glance
+
+| Area | Repository status |
+| --- | --- |
+| Organizations / OUs | Implemented in [Terraform](modules/organization/) |
+| Account vending | Implemented in [Terraform](modules/account-vending/); no AWS accounts have been created by this repository |
+| SCP definitions | Implemented in [modules/scp](modules/scp/); no live attachment unit or AWS enforcement |
+| Centralized CloudTrail | Terraform modules and [Terragrunt composition](docs/terragrunt-composition.md) implemented; AWS deployment and delivery unvalidated |
+| Remote state | Deferred |
+| AWS deployment validation | Not performed |
+| CI | Not implemented |
+
 ## Architecture overview
+
+See the detailed [architecture](docs/architecture.md) and
+[account model](docs/account-model.md) documents for the approved hierarchy,
+responsibilities, and deferred scope.
 
 ```mermaid
 flowchart TD
@@ -64,16 +80,17 @@ this diagram are functional labels, not account IDs.
 
 Reusable Terraform modules currently cover:
 
-- the AWS Organization and approved OU hierarchy;
-- the eight-account account-vending contract;
+- the [AWS Organization and approved OU hierarchy](modules/organization/);
+- the [eight-account account-vending contract](modules/account-vending/);
 - five SCP policy definitions and explicit attachment interfaces in
-  `modules/scp`;
-- CloudTrail trusted access;
-- CloudTrail delegated-administrator registration;
-- Log Archive S3/KMS storage and CloudTrail delivery policies; and
-- the single organization CloudTrail trail definition.
+  [modules/scp](modules/scp/);
+- [CloudTrail trusted access](modules/cloudtrail-trusted-access/);
+- [CloudTrail delegated-administrator registration](modules/cloudtrail-bootstrap/);
+- [Log Archive S3/KMS storage and CloudTrail delivery policies](modules/log-archive/); and
+- the [single organization CloudTrail trail definition](modules/cloudtrail/).
 
-The Terragrunt live composition currently contains the v1 CloudTrail chain:
+The [Terragrunt live composition](live/) currently contains the v1 CloudTrail
+chain:
 
 ```text
 management/organization
@@ -93,10 +110,13 @@ delivery has been created by this repository.
 ## Security and governance decisions
 
 SCPs are deny-oriented governance guardrails, not IAM permission grants. The
-five approved policies protect account membership, regional boundaries,
-CloudTrail configuration, security-service configuration, and routine member
-root-user activity. Attachments remain caller-controlled and must follow the
-staged rollout documented in [docs/scp-rollout.md](docs/scp-rollout.md).
+five approved policy definitions and caller-controlled attachment interfaces
+exist in [modules/scp](modules/scp/); no SCP Terragrunt live/state unit exists,
+and no real AWS SCP attachment or enforcement has been performed. The policies
+protect account membership, regional boundaries, CloudTrail configuration,
+security-service configuration, and routine member root-user activity.
+Attachments must follow the staged rollout documented in
+[docs/scp-rollout.md](docs/scp-rollout.md).
 
 Security Tooling is the intended delegated administration boundary for
 GuardDuty, Security Hub, and CloudTrail-related security operations where AWS
@@ -136,16 +156,17 @@ it is not the production state architecture.
 
 ## Validation status
 
-Validation is deliberately separated from AWS deployment claims. Terraform
-native tests use provider mocking and verify module contracts. Terragrunt HCL
-formatting and selected render/validate paths have been exercised locally with
-synthetic inputs and a local AWS provider mirror. Provider initialization and
-dependency traversal can still be environment-sensitive, especially when
-upstream state is absent.
+Validation is deliberately separated from AWS deployment claims. Earlier
+module implementation gates successfully ran Terraform validation and native
+tests locally with mocked providers. The later Gate 6.0 repository-wide rerun
+was blocked by a local AWS provider plugin handshake issue. Terragrunt render
+was exercised across all live units, but no clean repository-wide Terraform or
+Terragrunt validation rerun is claimed. See [docs/validation.md](docs/validation.md)
+for the evidence and boundaries.
 
 No AWS credentials are required for the repository's mocked tests, and no
 `apply` or `destroy` should be run as part of local validation. The detailed
-status matrix is in [docs/validation.md](docs/validation.md).
+status matrix is linked above.
 
 ## Failure and recovery thinking
 

@@ -71,9 +71,10 @@ modification; it does not prevent modification by itself.
 ### Security Tooling account
 
 Security Tooling is the intended CloudTrail delegated-administrator account.
-After a later bootstrap gate, it should manage the organization trail and its
-control plane using the AWS delegated-administration model. It does not own
-the durable central log-storage bucket or its KMS key.
+Once the approved bootstrap sequence has been applied and validated in AWS, it
+should manage the organization trail and its control plane using the AWS
+delegated-administration model. It does not own the durable central log-storage
+bucket or its KMS key.
 
 The reusable `modules/cloudtrail-trusted-access` module defines the
 management-account trusted-access resource, but trusted access has not been
@@ -148,7 +149,7 @@ The storage baseline is:
   `s3:PutObject` for delivered trail objects;
 - organization-trail objects delivered under the organization path
   `AWSLogs/<organization-id>/*`;
-- the bucket policy eventually scoped with `aws:SourceArn` to the organization
+- the bucket policy scoped with `aws:SourceArn` to the organization
   trail;
 - no broad wildcard account access; and
 - no default direct read access for member workload accounts.
@@ -180,16 +181,19 @@ to:
 - avoid general `kms:Decrypt` access for workload accounts; and
 - separate key administration from key usage where practical.
 
-The final KMS policy JSON remains an implementation contract in the module and
-no KMS key has been deployed or validated against AWS by this gate. If the key
-is disabled, or its policy no longer permits the required CloudTrail
-operations, log delivery can fail.
+The KMS policy is implemented explicitly in `modules/log-archive`; no KMS key
+has been deployed or validated against AWS by this gate. If the key is
+disabled, or its policy no longer permits the required CloudTrail operations,
+log delivery can fail.
 
 ### Retention, lifecycle, and Object Lock
 
-Lifecycle retention is configuration-driven. This design does not select an
-arbitrary number of days and does not claim PCI, SOC 2, ISO, HIPAA, or any
-other compliance outcome from retention alone.
+The implemented `modules/log-archive` lifecycle behavior is configuration-
+driven: `retention_days = null` creates no expiration lifecycle rule, while a
+positive configured value creates an enabled object-expiration rule after that
+many days. This design does not select an arbitrary operational retention
+period and does not claim PCI, SOC 2, ISO, HIPAA, or any other compliance
+outcome from retention alone. Real AWS lifecycle behavior remains unvalidated.
 
 S3 Object Lock is not part of v1. It remains a possible future immutability
 enhancement that would require deliberate retention and governance-mode
@@ -302,11 +306,11 @@ a giant logging module.
 
 Remaining validation work includes the globally unique bucket name,
 `organization_id`, management-account ID and organization trail ARN at apply
-time, lifecycle configuration, any approved audit-reader/recovery principals,
-delivery health checks, and the exact AWS behavior of trusted access,
-delegated administration, and the selected provider execution path. These
-details are implementation and operational validation concerns, not claims of
-successful AWS deployment.
+time, operational retention selection and AWS lifecycle behavior, any approved
+audit-reader/recovery principals, delivery health checks, and the exact AWS
+behavior of trusted access, delegated administration, and the selected
+provider execution path. These details are implementation and operational
+validation concerns, not claims of successful AWS deployment.
 
 ## Status
 

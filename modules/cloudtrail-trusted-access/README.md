@@ -38,8 +38,8 @@ The hard dependency is:
 
 `modules/cloudtrail-trusted-access` → `modules/cloudtrail-bootstrap` → `modules/cloudtrail`
 
-Reusable modules do not contain dependencies on one another. Terragrunt or a
-later composition layer will express the state and dependency ordering.
+Reusable modules do not contain dependencies on one another. The implemented
+Terragrunt live composition expresses the state and dependency ordering.
 
 ## Why this standalone resource is used
 

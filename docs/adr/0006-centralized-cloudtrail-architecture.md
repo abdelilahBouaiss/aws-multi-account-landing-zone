@@ -77,7 +77,9 @@ bucket and `s3:PutObject` for delivered trail objects under
 `AWSLogs/<organization-id>/*`. The `organization_id`, management-account ID,
 and organization trail ARN are composition inputs and must not be hardcoded.
 The policy must preserve AWS-required ownership and ACL delivery semantics
-without granting broad account access; its final JSON is deferred.
+without granting broad account access. The reusable `modules/log-archive`
+module defines the policy explicitly; its real AWS behavior remains
+unvalidated.
 
 Lifecycle retention is configurable and is not frozen to an arbitrary number
 of days. S3 Object Lock is deferred. This ADR does not itself register the

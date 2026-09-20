@@ -56,7 +56,7 @@ Optional inputs:
   otherwise it must be a positive whole number.
 - `tags`: semantic tags applied to the S3 bucket and KMS key.
 
-The future trail ARN is constructed as:
+The trail ARN is constructed as:
 
 `arn:<partition>:cloudtrail:eu-west-1:<management_account_id>:trail/<trail_name>`
 

@@ -285,9 +285,9 @@ output contract.
 
 ## Provider generation and authentication
 
-Provider generation is a live-composition concern. Later unit configurations
-should use Terragrunt `generate` blocks to produce `provider.tf` for the
-selected provider context. The generated providers should use:
+Provider generation is a live-composition concern. `live/root.hcl` owns the
+Terragrunt `generate` block that produces `provider.tf`, and live units inherit
+that behavior through their root include. The generated providers use:
 
 - management context: Region `eu-west-1` and operator/CI-supplied
   management-account authentication;
